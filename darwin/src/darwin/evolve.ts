@@ -2,7 +2,7 @@
 // Hooks let a store (Atlas) and a human gate (phone) plug in without changing the loop.
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { applyPatch, baseHarness, diffHarness, type Harness, type Patch } from "./harness.ts";
+import { applyPatch, baseHarness, diffHarness, validatePatch, type Harness, type Patch } from "./harness.ts";
 import { heldoutTasks, trainTasks, type Task } from "./tasks.ts";
 import { runTask, type RunRecord } from "./worker.ts";
 import { aggregate, type Score } from "./scorer.ts";
@@ -19,6 +19,7 @@ export interface Generation {
   largestCluster: string | null;
   diagnosis: string;
   lessons: string[];
+  question: { text: string; options: string[]; answer: string | null } | null;
   patch: Patch | null;
   candidateVersion: number | null;
   diff: string[];
@@ -37,6 +38,8 @@ export interface EvolveHooks {
   onGeneration?: (g: Generation, runs: RunRecord[]) => Promise<void>;
   lessonsFor?: (task: Task, h: Harness) => Promise<string[]>;
   metaLessons?: (h: Harness) => Promise<string[]>;
+  /** Ask the operator the meta-agent's question; resolves to the chosen option, or null if nobody answers / not in human mode. */
+  ask?: (ctx: { gen: number; evolveId: string; candidateVersion: number; parentVersion: number; diagnosis: string; before: Score; question: { text: string; options: string[] } }) => Promise<string | null>;
   /** Human-in-the-loop gate: can veto (or wait for the phone), never override a safety/metric rollback. */
   gate?: (ctx: {
     gen: number;
@@ -143,7 +146,7 @@ export async function evolve(opts: {
     });
 
     const record: Generation = {
-      evolveId, gen, harnessVersion: active.version, train, largestCluster: null, diagnosis: "", lessons: [], patch: null, candidateVersion: null,
+      evolveId, gen, harnessVersion: active.version, train, largestCluster: null, diagnosis: "", lessons: [], question: null, patch: null, candidateVersion: null,
       diff: [], heldoutBefore: activeScore, heldoutAfter: null, decision: null, startedAt: new Date(t0), ms: 0,
     };
 
@@ -162,8 +165,25 @@ export async function evolve(opts: {
     record.diagnosis = proposal.diagnosis;
     record.lessons = proposal.lessons;
     record.patch = proposal.patch;
-    const candidate = applyPatch(active, proposal.patch);
+    let candidate = applyPatch(active, proposal.patch);
     candidate.version = nextVersion++;
+    // The meta-agent's question for the operator: the chosen answer becomes a user-preference rule in the candidate.
+    if (proposal.question && hooks.ask) {
+      const answer = await hooks.ask({ gen, evolveId, candidateVersion: candidate.version, parentVersion: active.version, diagnosis: proposal.diagnosis, before: activeScore, question: proposal.question });
+      record.question = { ...proposal.question, answer };
+      if (answer) {
+        const pref: Patch = { ops: [{ op: "addRule", rule: `User preference: ${proposal.question.text} ${answer}`.slice(0, 400) }], rationale: "operator answered a question" };
+        const ok = validatePatch(candidate, pref);
+        if (ok.ok) {
+          const withPref = applyPatch(candidate, pref);
+          withPref.version = candidate.version;
+          withPref.parentVersion = active.version;
+          withPref.rationale = proposal.patch.rationale;
+          candidate = withPref;
+          log(`  operator answered: "${answer}" -> added as a user-preference rule`);
+        } else log(`  operator answered: "${answer}" (not added as a rule: ${ok.error})`);
+      }
+    }
     record.candidateVersion = candidate.version;
     record.diff = diffHarness(active, candidate);
     log(`  largest cluster: ${record.largestCluster}`);

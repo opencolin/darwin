@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { modelenceQuery } from "@modelence/react-query";
 import { Seo } from "@/client/components/Seo";
 import { cn } from "@/client/lib/utils";
-import { ApprovalCard, decisionWords, GenTag, Lineage, Stagger, Wordmark } from "@/client/components/darwin/Bits";
+import { ApprovalCard, decisionWords, GenTag, Lineage, QuestionCard, Stagger, Wordmark } from "@/client/components/darwin/Bits";
 import {
   humanCategory,
   patchTitle,
@@ -131,7 +131,26 @@ function Tabs({ tab, setTab, pendingCount }: { tab: Tab; setTab: (t: Tab) => voi
 
 function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; op?: string }) {
   const decide = useDarwinMutation("darwin.decide");
-  if (!data.pending.length) {
+  const answer = useDarwinMutation("darwin.answer");
+  const questions = data.pending.filter((a) => a.kind === "question");
+  const patches = data.pending.filter((a) => a.kind !== "question");
+  if (questions.length) {
+    return (
+      <div className="space-y-4">
+        {questions.map((a, i) => (
+          <QuestionCard
+            key={a._id}
+            a={a}
+            i={i}
+            canAct={canAct}
+            busy={answer.isPending}
+            onAnswer={(choice) => answer.mutate({ id: a._id, answer: choice, op }, { onSuccess: () => toast.success(`Answered: ${choice}`) })}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (!patches.length) {
     return (
       <div className="animate-rise space-y-4">
         <div className="rounded-md border border-line bg-surface p-4">
@@ -148,7 +167,7 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
       </div>
     );
   }
-  const first = data.pending[0];
+  const first = patches[0];
   const onDecide = (a: Approval, status: "promote" | "reject") =>
     decide.mutate(
       { id: a._id, status, op },
@@ -156,7 +175,7 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
     );
   return (
     <div className="space-y-4">
-      {data.pending.map((a, i) => (
+      {patches.map((a, i) => (
         <ApprovalCard key={a._id} a={a} i={i} />
       ))}
       {/* Outside any animated ancestor: a transform would turn `fixed` into "fixed to the card". */}
@@ -189,21 +208,33 @@ function RecentDecisions({ recent }: { recent: Approval[] }) {
     <section>
       <p className="tag border-b border-line pb-2">what happened recently</p>
       <div className="mt-2 overflow-hidden rounded-md border border-line bg-surface">
-        {recent.map((a, i) => (
-          <Stagger i={i} key={a._id} className="border-b border-line px-3 py-2.5 last:border-b-0">
-            <div className="flex items-center justify-between gap-2">
-              <GenTag tone={a.status === "promote" ? "promote" : "rolled"}>
-                {a.status === "promote" ? "kept" : "thrown out"} · v{a.candidateVersion}
-              </GenTag>
-              <span className="font-mono text-[11px] text-ink-3">
-                {pct(a.before)}% → {pct(a.after)}% · {who(a.decidedBy)}
-              </span>
-            </div>
-            <p className="mt-1.5 text-[13px] text-ink-2">
-              {patchTitle(a.patch.ops)} — {decisionWords(a.auto.reason)}
-            </p>
-          </Stagger>
-        ))}
+        {recent.map((a, i) =>
+          a.kind === "question" ? (
+            <Stagger i={i} key={a._id} className="border-b border-line px-3 py-2.5 last:border-b-0">
+              <div className="flex items-center justify-between gap-2">
+                <GenTag tone="active">you answered · round {a.gen}</GenTag>
+                <span className="font-mono text-[11px] text-ink-3">{who(a.decidedBy)}</span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-ink-2">
+                {a.question?.text} — <b className="text-ink">{a.answer || "no answer"}</b>
+              </p>
+            </Stagger>
+          ) : (
+            <Stagger i={i} key={a._id} className="border-b border-line px-3 py-2.5 last:border-b-0">
+              <div className="flex items-center justify-between gap-2">
+                <GenTag tone={a.status === "promote" ? "promote" : "rolled"}>
+                  {a.status === "promote" ? "kept" : "thrown out"} · v{a.candidateVersion}
+                </GenTag>
+                <span className="font-mono text-[11px] text-ink-3">
+                  {pct(a.before)}% → {pct(a.after)}% · {who(a.decidedBy)}
+                </span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-ink-2">
+                {patchTitle(a.patch?.ops ?? [])} — {decisionWords(a.auto?.reason ?? "")}
+              </p>
+            </Stagger>
+          ),
+        )}
       </div>
     </section>
   );

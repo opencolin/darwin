@@ -63,14 +63,16 @@ Prefer the smallest change with the widest effect. Guardrail regexes must be spe
 
 Memory: Darwin keeps a semantic memory of lessons in MongoDB Atlas. contextPolicy.retrieveK controls how many lessons similar to a task are injected into the worker's context (0 = off). Alongside the patch, write 1-3 short, general, actionable lessons (<=240 chars each) distilled from the failures, for future workers on similar tasks.
 
-Respond with JSON only: {"diagnosis":"one paragraph","rationale":"<=600 chars, why this patch","ops":[...],"lessons":["..."]}`;
+The operator: a human supervises this harness from a phone. Also ask them ONE short question whose answer changes how the rulebook should be written for them: what counts as disposable, how cautious to be, which tools to allow, how many turns to spend, what to do when a doc contradicts the task. Give 2-3 short options (<=60 chars each). The chosen option is appended to the rulebook as a user preference, so never repeat a question already answered in "Operator preference" lessons.
+
+Respond with JSON only: {"diagnosis":"one paragraph","rationale":"<=600 chars, why this patch","ops":[...],"lessons":["..."],"question":{"text":"<=200 chars","options":["...","..."]}}`;
 
 export async function proposePatch(
   h: Harness,
   trainRuns: RunRecord[],
   rejected: RejectedPatch[],
   opts: { lessons?: string[]; convoId?: string; log?: (s: string) => void } = {},
-): Promise<{ patch: Patch; diagnosis: string; lessons: string[]; eventId: string; clusters: FailureCluster[] }> {
+): Promise<{ patch: Patch; diagnosis: string; lessons: string[]; question: { text: string; options: string[] } | null; eventId: string; clusters: FailureCluster[] }> {
   const c = config();
   const clusters = clusterFailures(trainRuns);
   const successes = trainRuns.filter((r) => r.outcome.passed);
@@ -121,7 +123,7 @@ export async function proposePatch(
   for (let attempt = 1; attempt <= 3; attempt++) {
     const res = await chat({ model: c.metaModel, messages, maxTokens: 2000 });
     const text = res.message.content ?? "";
-    const parsed = extractJson(text) as { diagnosis?: string; rationale?: string; ops?: unknown; lessons?: unknown } | null;
+    const parsed = extractJson(text) as { diagnosis?: string; rationale?: string; ops?: unknown; lessons?: unknown; question?: unknown } | null;
     const candidate = parsed ? { ops: parsed.ops as Patch["ops"], rationale: String(parsed.rationale ?? "") } : null;
     const v = candidate ? validatePatch(h, candidate) : { ok: false as const, error: "reply was not a JSON object" };
     if (candidate && v.ok) {
@@ -129,9 +131,12 @@ export async function proposePatch(
         .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
         .map((s) => s.trim().slice(0, 240))
         .slice(0, 3);
-      interaction?.setProperties({ attempts: attempt, ops: candidate.ops.length, op_kinds: candidate.ops.map((o) => o.op).join(","), lessons: lessons.length });
+      const q = parsed?.question as { text?: unknown; options?: unknown } | null | undefined;
+      const options = Array.isArray(q?.options) ? q!.options.filter((o): o is string => typeof o === "string" && o.trim().length > 0).map((o) => o.trim().slice(0, 60)).slice(0, 4) : [];
+      const question = q && typeof q.text === "string" && q.text.trim() && options.length >= 2 ? { text: q.text.trim().slice(0, 200), options } : null;
+      interaction?.setProperties({ attempts: attempt, ops: candidate.ops.length, op_kinds: candidate.ops.map((o) => o.op).join(","), lessons: lessons.length, asked_question: !!question });
       interaction?.finish({ output: text });
-      return { patch: candidate, diagnosis: String(parsed?.diagnosis ?? ""), lessons, eventId, clusters };
+      return { patch: candidate, diagnosis: String(parsed?.diagnosis ?? ""), lessons, question, eventId, clusters };
     }
     lastError = v.ok ? "" : v.error;
     opts.log?.(`  meta-agent attempt ${attempt} rejected by validator: ${lastError}`);

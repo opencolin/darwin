@@ -168,6 +168,8 @@ export function ApprovalCard({ a, i, actions }: { a: Approval; i: number; action
   const before = pct(a.before);
   const after = pct(a.after);
   const delta = (after ?? 0) - (before ?? 0);
+  const violations = a.after?.safetyViolations ?? 0;
+  const recommendsKeep = a.auto?.action === "promote";
   return (
     <Stagger i={i}>
       <article className="overflow-hidden rounded-md border-2 border-pending bg-surface">
@@ -175,18 +177,18 @@ export function ApprovalCard({ a, i, actions }: { a: Approval; i: number; action
           <GenTag tone="pending">
             waiting for you · round {a.gen} · rulebook v{a.candidateVersion}
           </GenTag>
-          <h2 className="mt-2.5 text-[21px]">Proposed: {patchTitle(a.patch.ops)}</h2>
+          <h2 className="mt-2.5 text-[21px]">Proposed: {patchTitle(a.patch?.ops ?? [])}</h2>
           <p className="mt-1 font-mono text-xs text-ink-3">
             replaces v{a.parentVersion} · {a.diagnosis.slice(0, 110)}
             {a.diagnosis.length > 110 ? "…" : ""}
           </p>
           <p className="tag mt-3">why the AI wants this</p>
           <blockquote className="mt-1.5 border-l-2 border-line-strong pl-3 font-display text-[15.5px] italic leading-snug" style={{ fontVariationSettings: '"opsz" 24' }}>
-            “{a.patch.rationale}”
+            “{a.patch?.rationale}”
           </blockquote>
           <p className="tag mt-3">the change</p>
         </div>
-        <DiffLedger lines={a.diff} className="mt-1.5 rounded-none border-x-0 border-b-0" />
+        <DiffLedger lines={a.diff ?? []} className="mt-1.5 rounded-none border-x-0 border-b-0" />
         <div className="grid grid-cols-[auto_auto_1fr] items-end gap-3.5 border-t border-line p-4">
           <div>
             <div className="tag">surprise test before</div>
@@ -202,17 +204,51 @@ export function ApprovalCard({ a, i, actions }: { a: Approval; i: number; action
             </span>
           </div>
         </div>
-        <div className="px-4 pb-4">
+        <div className="flex flex-wrap gap-2 px-4 pb-4">
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em]",
-              a.after.safetyViolations ? "bg-violation-soft text-violation" : "bg-promote-soft text-promote",
+              violations ? "bg-violation-soft text-violation" : "bg-promote-soft text-promote",
             )}
           >
-            {a.after.safetyViolations ? `✕ did something dangerous ${a.after.safetyViolations}× on the surprise test` : "✓ nothing dangerous on the surprise test"}
+            {violations ? `✕ did something dangerous ${violations}× on the surprise test` : "✓ nothing dangerous on the surprise test"}
           </span>
+          {a.auto && (
+            <span className={cn("inline-flex items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em]", recommendsKeep ? "bg-tide-soft text-tide" : "bg-pending-soft text-pending")}>
+              {recommendsKeep ? "the loop says: keep" : "the loop says: throw away"} · {decisionWords(a.auto.reason)}
+            </span>
+          )}
         </div>
         {actions && <div className="border-t border-line p-3">{actions}</div>}
+      </article>
+    </Stagger>
+  );
+}
+
+/** The meta-agent's question for the operator; the chosen option becomes a user-preference rule. */
+export function QuestionCard({ a, i, onAnswer, busy, canAct }: { a: Approval; i: number; onAnswer: (answer: string) => void; busy: boolean; canAct: boolean }) {
+  return (
+    <Stagger i={i}>
+      <article className="overflow-hidden rounded-md border-2 border-tide bg-surface">
+        <div className="p-4">
+          <GenTag tone="active">the AI has a question · round {a.gen}</GenTag>
+          <h2 className="mt-2.5 text-[21px] leading-snug">{a.question?.text}</h2>
+          <p className="mt-1.5 text-[13px] text-ink-3">Your answer is written into the rulebook as your preference, and remembered — it won't ask again.</p>
+          <div className="mt-4 grid gap-2">
+            {(a.question?.options ?? []).map((o) => (
+              <button
+                key={o}
+                type="button"
+                disabled={!canAct || busy}
+                onClick={() => onAnswer(o)}
+                className="h-12 rounded-sm border border-tide px-3 text-left text-[15px] font-semibold text-tide transition-colors hover:bg-tide-soft disabled:opacity-50"
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+          {!canAct && <p className="mt-3 font-mono text-[12px] text-ink-3">view only — open the operator link once to answer</p>}
+        </div>
       </article>
     </Stagger>
   );

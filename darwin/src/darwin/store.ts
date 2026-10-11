@@ -14,7 +14,7 @@ import type { Score } from "./scorer.ts";
 import type { Decision } from "./promote.ts";
 
 export interface Lesson {
-  kind: "failure" | "rollback" | "promotion" | "skill";
+  kind: "failure" | "rollback" | "promotion" | "skill" | "preference";
   text: string;
   category?: string;
   harnessVersion: number;
@@ -29,19 +29,25 @@ export interface Settings {
   updatedAt: Date;
 }
 
+/** The phone's inbox: a patch to keep or throw away, or a question the meta-agent asks the operator. */
 export interface Approval {
   _id: string;
   evolveId: string;
   gen: number;
+  kind: "patch" | "question";
   candidateVersion: number;
   parentVersion: number;
-  patch: Patch;
-  diff: string[];
   diagnosis: string;
   before: Score;
-  after: Score;
-  auto: Decision;
-  status: "pending" | "promote" | "reject";
+  // patch
+  patch?: Patch;
+  diff?: string[];
+  after?: Score;
+  auto?: Decision;
+  // question
+  question?: { text: string; options: string[] };
+  answer?: string;
+  status: "pending" | "promote" | "reject" | "answered";
   decidedBy?: string;
   createdAt: Date;
   decidedAt?: Date;
@@ -195,7 +201,12 @@ export async function pendingApprovals(d: Db): Promise<Approval[]> {
 }
 
 export async function decideApproval(d: Db, id: string, status: "promote" | "reject", by: string): Promise<boolean> {
-  const r = await d.collection<Approval>("approvals").updateOne({ _id: id, status: "pending" }, { $set: { status, decidedBy: by, decidedAt: new Date() } });
+  const r = await d.collection<Approval>("approvals").updateOne({ _id: id, status: "pending", kind: "patch" }, { $set: { status, decidedBy: by, decidedAt: new Date() } });
+  return r.modifiedCount === 1;
+}
+
+export async function answerQuestion(d: Db, id: string, answer: string, by: string): Promise<boolean> {
+  const r = await d.collection<Approval>("approvals").updateOne({ _id: id, status: "pending", kind: "question" }, { $set: { status: "answered", answer, decidedBy: by, decidedAt: new Date() } });
   return r.modifiedCount === 1;
 }
 
@@ -231,6 +242,7 @@ export async function atlasHooks(opts: { evolveId: string; log?: (s: string) => 
     onGeneration: async (g: Generation) => {
       await d.collection("generations").insertOne({ ...g });
       const lessons: Omit<Lesson, "embedding" | "createdAt">[] = g.lessons.map((text) => ({ kind: "failure", text, harnessVersion: g.harnessVersion, category: g.largestCluster ?? undefined }));
+      if (g.question?.answer) lessons.push({ kind: "preference", text: `Operator preference: ${g.question.text} ${g.question.answer}`, harnessVersion: g.harnessVersion });
       if (g.patch && g.decision) {
         const ops = g.patch.ops.map((o) => o.op).join(",");
         lessons.push({
@@ -244,12 +256,40 @@ export async function atlasHooks(opts: { evolveId: string; log?: (s: string) => 
     lessonsFor: async (task, h) => {
       const k = h.contextPolicy.retrieveK;
       if (k <= 0) return [];
-      const hits = await searchLessons(d, `${task.family}: ${task.prompt}`, k, ["failure", "skill"]);
+      const hits = await searchLessons(d, `${task.family}: ${task.prompt}`, k, ["failure", "skill", "preference"]);
       return hits.map((l) => l.text);
     },
     metaLessons: async () => {
-      const recent = await d.collection<Lesson>("lessons").find({ kind: { $in: ["rollback", "promotion"] } }).sort({ createdAt: -1 }).limit(8).toArray();
+      const recent = await d.collection<Lesson>("lessons").find({ kind: { $in: ["rollback", "promotion", "preference"] } }).sort({ createdAt: -1 }).limit(10).toArray();
       return recent.map((l) => l.text);
+    },
+    ask: async (ctx) => {
+      const settings = await getSettings(d);
+      if (settings.mode !== "human" || settings.frozen) return null;
+      const approvals = d.collection<Approval>("approvals");
+      const q: Approval = {
+        _id: randomUUID(),
+        evolveId: ctx.evolveId,
+        gen: ctx.gen,
+        kind: "question",
+        candidateVersion: ctx.candidateVersion,
+        parentVersion: ctx.parentVersion,
+        diagnosis: ctx.diagnosis,
+        before: ctx.before,
+        question: ctx.question,
+        status: "pending",
+        createdAt: new Date(),
+      };
+      await approvals.insertOne(q);
+      log(`  asking on the phone: "${ctx.question.text}" [${ctx.question.options.join(" / ")}]`);
+      const deadline = Date.now() + (opts.approvalTimeoutMs ?? 15 * 60_000);
+      while (Date.now() < deadline) {
+        await sleep(2000);
+        const a = await approvals.findOne({ _id: q._id });
+        if (a?.status === "answered" && a.answer) return a.answer;
+      }
+      await approvals.updateOne({ _id: q._id, status: "pending" }, { $set: { status: "answered", answer: "", decidedBy: "timeout", decidedAt: new Date() } });
+      return null;
     },
     gate: async (ctx) => {
       const settings = await getSettings(d);
@@ -258,6 +298,7 @@ export async function atlasHooks(opts: { evolveId: string; log?: (s: string) => 
         _id: randomUUID(),
         evolveId: ctx.evolveId,
         gen: ctx.gen,
+        kind: "patch",
         candidateVersion: ctx.candidate.version,
         parentVersion: ctx.candidate.parentVersion ?? 0,
         patch: ctx.patch,
@@ -273,19 +314,23 @@ export async function atlasHooks(opts: { evolveId: string; log?: (s: string) => 
         await approvals.insertOne({ ...base, status: "reject", decidedBy: "frozen", decidedAt: new Date() });
         return { action: "rollback", reason: "harness frozen by operator" };
       }
-      // Safety and metric gates are hard: a human can veto a promotion, never override a rollback.
-      if (settings.mode === "auto" || ctx.auto.action === "rollback") {
+      // The safety gate is hard: something dangerous on held-out is thrown out without asking anyone.
+      const unsafe = ctx.after.safetyViolations > 0;
+      if (settings.mode === "auto" || unsafe) {
         await approvals.insertOne({ ...base, status: ctx.auto.action === "promote" ? "promote" : "reject", decidedBy: "auto", decidedAt: new Date() });
         return ctx.auto;
       }
+      // Human mode: every safe candidate is a question for the operator, with the loop's recommendation attached.
       await approvals.insertOne(base);
-      log(`  waiting for a decision on the phone (approval ${base._id.slice(0, 8)}; candidate v${ctx.candidate.version})...`);
+      log(`  waiting for a decision on the phone (approval ${base._id.slice(0, 8)}; candidate v${ctx.candidate.version}; loop recommends ${ctx.auto.action})...`);
       const deadline = Date.now() + (opts.approvalTimeoutMs ?? 15 * 60_000);
       while (Date.now() < deadline) {
         await sleep(2000);
         const a = await approvals.findOne({ _id: base._id });
-        if (a?.status === "promote") return { action: "promote", reason: `approved by ${a.decidedBy ?? "operator"}; ${ctx.auto.reason}` };
-        if (a?.status === "reject") return { action: "rollback", reason: `rejected by ${a.decidedBy ?? "operator"}` };
+        if (a?.status === "promote") {
+          return { action: "promote", reason: `approved by ${a.decidedBy ?? "operator"} (loop recommended ${ctx.auto.action}); ${ctx.auto.reason}` };
+        }
+        if (a?.status === "reject") return { action: "rollback", reason: `rejected by ${a.decidedBy ?? "operator"} (loop recommended ${ctx.auto.action})` };
       }
       await approvals.updateOne({ _id: base._id, status: "pending" }, { $set: { status: "reject", decidedBy: "timeout", decidedAt: new Date() } });
       return { action: "rollback", reason: "no decision before the approval timeout" };

@@ -25,15 +25,18 @@ export type Approval = {
   _id: string;
   evolveId: string;
   gen: number;
+  kind: "patch" | "question";
   candidateVersion: number;
   parentVersion: number;
-  patch: { ops: PatchOp[]; rationale: string };
-  diff: string[];
   diagnosis: string;
   before: Score;
-  after: Score;
-  auto: Decision;
-  status: "pending" | "promote" | "reject";
+  patch?: { ops: PatchOp[]; rationale: string };
+  diff?: string[];
+  after?: Score;
+  auto?: Decision;
+  question?: { text: string; options: string[] };
+  answer?: string;
+  status: "pending" | "promote" | "reject" | "answered";
   decidedBy?: string;
   createdAt: string;
   decidedAt?: string;
@@ -112,7 +115,7 @@ export function useOperatorToken(): string | undefined {
   return op;
 }
 
-export function useDarwinMutation(name: "darwin.decide" | "darwin.setFrozen" | "darwin.setMode") {
+export function useDarwinMutation(name: "darwin.decide" | "darwin.answer" | "darwin.setFrozen" | "darwin.setMode") {
   const qc = useQueryClient();
   return useMutation({
     ...modelenceMutation(name),

@@ -2,7 +2,7 @@
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import Page from '@/client/components/Page';
-import { ApprovalCard, GenerationCard, Lineage, Numeral } from '@/client/components/darwin/Bits';
+import { ApprovalCard, GenerationCard, Lineage, Numeral, QuestionCard } from '@/client/components/darwin/Bits';
 import { Expeditions } from '@/client/components/darwin/Expeditions';
 import { cn } from '@/client/lib/utils';
 import { useDarwinMutation, useDarwinState, useOperatorToken, type Approval } from '@/client/lib/darwin';
@@ -62,11 +62,17 @@ export default function HomePage() {
 
       {data && data.pending.length > 0 && (
         <section>
-          <p className="tag border-b border-pending pb-2 text-pending">waiting for you · the AI wants to change its rulebook</p>
+          <p className="tag border-b border-pending pb-2 text-pending">
+            waiting for you · {data.pending.some((a) => a.kind === 'question') ? 'the AI has a question' : 'the AI wants to change its rulebook'}
+          </p>
           <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,640px)]">
-            {data.pending.map((a, i) => (
-              <ApprovalCard key={a._id} a={a} i={i} actions={<DeskActions a={a} canAct={canAct} op={op} />} />
-            ))}
+            {data.pending.map((a, i) =>
+              a.kind === 'question' ? (
+                <DeskQuestion key={a._id} a={a} i={i} canAct={canAct} op={op} />
+              ) : (
+                <ApprovalCard key={a._id} a={a} i={i} actions={<DeskActions a={a} canAct={canAct} op={op} />} />
+              ),
+            )}
           </div>
         </section>
       )}
@@ -142,6 +148,19 @@ export default function HomePage() {
         </Card>
       </section>
     </Page>
+  );
+}
+
+function DeskQuestion({ a, i, canAct, op }: { a: Approval; i: number; canAct: boolean; op?: string }) {
+  const answer = useDarwinMutation('darwin.answer');
+  return (
+    <QuestionCard
+      a={a}
+      i={i}
+      canAct={canAct}
+      busy={answer.isPending}
+      onAnswer={(choice) => answer.mutate({ id: a._id, answer: choice, op }, { onSuccess: () => toast.success(`Answered: ${choice}`) })}
+    />
   );
 }
 

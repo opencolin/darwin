@@ -5,7 +5,7 @@ import { Module } from "modelence/server";
 import { config } from "@/darwin/config.ts";
 import type { Harness } from "@/darwin/harness.ts";
 import type { Generation } from "@/darwin/evolve.ts";
-import { decideApproval, getDb, getSettings, lineage, pendingApprovals, searchLessons, setSettings, type Approval, type Lesson } from "@/darwin/store.ts";
+import { answerQuestion, decideApproval, getDb, getSettings, lineage, pendingApprovals, searchLessons, setSettings, type Approval, type Lesson } from "@/darwin/store.ts";
 
 config(); // loads .env (MONGODB_URI, VOYAGE_*) for the server process
 
@@ -95,6 +95,13 @@ export default new Module("darwin", {
       const { id, status } = z.object({ id: z.string(), status: z.enum(["promote", "reject"]) }).parse(args);
       const ok = await decideApproval(await getDb(), id, status, "phone");
       if (!ok) throw new Error("That approval was already decided.");
+      return { ok };
+    },
+    answer: async (args: unknown) => {
+      requireOperator(args);
+      const { id, answer } = z.object({ id: z.string(), answer: z.string().min(1).max(60) }).parse(args);
+      const ok = await answerQuestion(await getDb(), id, answer, "phone");
+      if (!ok) throw new Error("That question was already answered.");
       return { ok };
     },
     setFrozen: async (args: unknown) => {
