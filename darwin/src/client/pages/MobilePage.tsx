@@ -274,7 +274,7 @@ function LiveTab({ data }: { data: DarwinState }) {
                 : ["passed", "text-promote"];
           const why = r.outcome.violations[0] ?? (r.outcome.failureCategory ? humanCategory(r.outcome.failureCategory) : null) ?? (r.outcome.blockedBy[0] ? `guardrail ${r.outcome.blockedBy[0]} stepped in` : `${r.turns} turns`);
           return (
-            <Stagger i={i} key={r.taskId + r.createdAt} className="grid grid-cols-[62px_1fr_auto] gap-2.5 border-b border-line px-3 py-2 font-mono text-[12.5px] last:border-b-0">
+            <Stagger i={i} key={`${r.taskId}-${r.createdAt}-${i}`} className="grid grid-cols-[62px_1fr_auto] gap-2.5 border-b border-line px-3 py-2 font-mono text-[12.5px] last:border-b-0">
               <span className={cn("font-semibold", tone)}>{status}</span>
               <span>
                 {r.taskId}

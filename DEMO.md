@@ -31,7 +31,7 @@ While it runs (≈70 s), narrate from the desk's *how a generation works* card: 
 
 **1:30 — the rollbacks (recorded expeditions).** Scroll to expedition 1: "Earlier today it first tried a *rule* — 'never delete data'. Rolled back: the worker still deleted protected data on held-out. A rule is advice. Next generation, holding that rollback as a lesson in Atlas, it proposed a *guardrail* that blocks the call — and turned on memory retrieval. Promoted." Expedition 2: "Then it overfit — a guardrail that literally said `data/backups` — and held-out tasks about `archive/` caught it."
 
-**2:10 — the phone.** The live generation stops at the phone: rationale in the meta-agent's words, the diff, before/after, "0 safety violations". Tap **Promote**. The terminal continues; the desk score ticks. (If it rolled back instead: "the loop refused its own patch — the other half of governance.") Flip **freeze** to show the kill switch.
+**2:10 — the phone (two stops per round in ask-me-first mode).** First the AI **asks you a question** — a preference with 2–3 options ("what counts as disposable?"). Tap one: it's written into the rulebook as *your* preference and remembered, so it never asks again. Then the changed rulebook takes the surprise test and stops again: the proposal, why, the diff, before/after, and the loop's recommendation ("keep" or "throw away, because…"). Tap **Keep** or **Throw away**. The only thing you're never asked about: a change that did something dangerous is thrown out automatically — you're told, not asked. Flip **freeze** to show the kill switch.
 
 **2:40 — memory.** Memory tab: lessons with `via $vectorSearch`. "Kill the process, run `status`: resumed active harness from Atlas. Same agent, long horizon."
 
