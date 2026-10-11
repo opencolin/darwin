@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router';
-import { useSession } from 'modelence/client';
 import LoadingSpinner from '@/client/components/LoadingSpinner';
 import { Seo, type SeoProps } from '@/client/components/Seo';
 import { Wordmark } from '@/client/components/darwin/Bits';
@@ -29,8 +28,7 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 }
 
 function Header() {
-  const { user } = useSession();
-
+  // Darwin has no accounts: operator rights come from the ?op= link stored on the phone, not from a login.
   return (
     <header className="border-b border-line-strong bg-paper">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8">
@@ -38,23 +36,14 @@ function Header() {
           <Link to="/" aria-label="Darwin home">
             <Wordmark className="text-[22px]" />
           </Link>
-          <nav className="hidden items-center gap-4 sm:flex">
+          <nav className="flex items-center gap-4">
             <NavLink to="/">desk</NavLink>
             <NavLink to="/m">phone</NavLink>
           </nav>
         </div>
-        {user ? (
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-ink-2">{user.handle}</span>
-            <Link to="/logout" className="tag rounded-xs border border-line-strong px-2 py-1.5 transition-colors hover:bg-surface-2">
-              log out
-            </Link>
-          </div>
-        ) : (
-          <Link to="/login" className="tag rounded-xs border border-line-strong px-2 py-1.5 transition-colors hover:bg-surface-2">
-            sign in
-          </Link>
-        )}
+        <a href="https://github.com/opencolin/darwin" className="tag rounded-xs border border-line-strong px-2 py-1.5 transition-colors hover:bg-surface-2" target="_blank" rel="noreferrer">
+          source
+        </a>
       </div>
     </header>
   );

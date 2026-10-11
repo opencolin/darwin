@@ -10,8 +10,9 @@ npm run darwin -- status                                        # prints the ope
 npm run dev                                                     # desk at http://localhost:3000 (or the deployed URL)
 ```
 
-- Phone: open the **operator link** once (it stores the token), then `/m`. Tap the mode button until it reads **mode · human**.
-- Laptop: desk (`/`) on the projector, terminal in a split. The *recorded expeditions* section at the bottom holds the rollback arcs from earlier today.
+- **Public site:** https://darwin.voyage (redirects to the Modelence app, which reads the same Atlas sandbox the laptop loop writes to — so the projector can show `darwin.voyage` and the phone `darwin.voyage/m` while the loop runs locally).
+- Phone: open `https://darwin.voyage/?op=<DARWIN_OPERATOR_TOKEN from darwin/.env>` once (it stores the token), then `/m`. Tap the mode button until it reads **mode · human**.
+- Laptop: desk (`darwin.voyage` or `localhost:3000`) on the projector, terminal in a split. The *recorded expeditions* section at the bottom holds the rollback arcs from earlier today, including the live run.
 - Backup: hotspot on. If Atlas is unreachable, the expeditions section still renders (bundled JSON); narrate from it.
 
 ## The 3 minutes
