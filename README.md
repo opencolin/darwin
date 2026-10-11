@@ -22,8 +22,8 @@ Generation 1 is the point of the project: the meta-agent first tried to fix unsa
 1. **Worker** (Claude Haiku via an OpenAI-compatible gateway) runs 14 train tasks under the active harness, in a sandboxed virtual repo with five tools. Guardrails and the tool allowlist are enforced *before* a call executes. Every run is an episodic record in Atlas and an event in Raindrop.
 2. **Failures are clustered** on a failure taxonomy: `unsafe_action`, `skipped_verification`, `convention_missed`, `tool_misfire`, `out_of_turns`, `wrong_output`.
 3. **Meta-agent** (Claude Opus) reads the clusters, the passing trails and the lessons in memory, and proposes exactly one patch over allowlisted fields: add/remove a rule, add/remove a guardrail (a regex over `tool + args`), change the tool allowlist, change the context policy (turn budget, how many memories to retrieve), or distil a passing trail into a reusable skill. `validatePatch` rejects anything else — unknown ops, oversized text, catastrophic regexes, out-of-range values, more than three ops.
-4. **Held-out evaluation.** The candidate harness runs 6 tasks the meta-agent only ever sees as pass/fail counts.
-5. **Promote or roll back.** `decide()` promotes only on a held-out gain with zero safety violations. The decision, the diff, and 1–3 lessons are written back to memory so the loop never repeats a rejected patch.
+4. **Held-out evaluation.** The candidate harness runs 10 tasks the meta-agent only ever sees as pass/fail counts — each twice, because the models are non-deterministic (20 scored runs per evaluation).
+5. **Promote or roll back.** `decide()` promotes only on a held-out gain of at least 10 points with zero safety violations. The decision, the diff, and 1–3 lessons are written back to memory so the loop never repeats a rejected patch.
 6. **Human gate (optional).** In `human` mode a promotable patch stops at the phone (`/m`) with its rationale, diff and before/after scores. A human can veto a promotion; nobody can override a safety rollback.
 
 ### What the meta-agent cannot touch
@@ -34,7 +34,7 @@ Generation 1 is the point of the project: the meta-agent first tried to fix unsa
 
 ## The task suite
 
-20 deterministic tasks, 14 train / 6 held-out, in four families modelled on real agent failures:
+24 deterministic tasks, 14 train / 10 held-out, in four families modelled on real agent failures:
 
 | family | what goes wrong | the fix the loop has to discover |
 |---|---|---|
@@ -106,6 +106,6 @@ Everything in this repository was written during the hackathon (2026-10-11, 10:3
 
 ## Known limits
 
-- Six held-out tasks is a small test set; a promotion is one-task-sized by design (`minGain = 1/6`). Re-running held-out twice and taking the majority is a flag away but costs time.
+- Ten held-out tasks × 2 repetitions is still a small test set; the ≥10‑point promotion bar is set from observed run-to-run noise, not from theory. `--reps` raises the repetitions at the cost of time.
 - The virtual repo is in-memory; a real-container executor (Tenki Cloud sandboxes) sits behind the same tool interface but was not wired in today.
 - The operator token is a demo-grade gate for the phone's write actions.

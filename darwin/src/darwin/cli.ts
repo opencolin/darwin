@@ -15,7 +15,7 @@ import { evolve, runSuite, type EvolveHooks } from "./evolve.ts";
 import { closeRaindrop } from "./observe.ts";
 import { config } from "./config.ts";
 import { writeFileSync, mkdirSync } from "node:fs";
-import { atlasHooks, closeDb, decideApproval, exportAll, getDb, getSettings, lineage, pendingApprovals, resetAll, setSettings } from "./store.ts";
+import { atlasHooks, closeDb, decideApproval, exportAll, getDb, getSettings, lineage, pendingApprovals, resetAll, searchLessons, setSettings } from "./store.ts";
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (name: string, def: number) => {
@@ -68,7 +68,7 @@ async function main() {
     } else {
       log("memory: none (--no-store or MONGODB_URI unset); this run will not persist");
     }
-    await evolve({ generations: flag("generations", 3), concurrency: flag("concurrency", 5), log, hooks, evolveId });
+    await evolve({ generations: flag("generations", 3), concurrency: flag("concurrency", 5), heldoutReps: flag("reps", 2), log, hooks, evolveId });
     return;
   }
   if (cmd === "status") {
@@ -99,6 +99,14 @@ async function main() {
   if (cmd === "freeze") {
     const s = await setSettings(await getDb(), { frozen: rest[0] !== "off" });
     console.log(`frozen=${s.frozen}`);
+    return;
+  }
+  if (cmd === "recall") {
+    const q = rest.filter((a) => !a.startsWith("--")).join(" ");
+    if (!q) throw new Error("usage: darwin recall <query...>");
+    const hits = await searchLessons(await getDb(), q, flag("k", 5));
+    for (const l of hits) console.log(`[${l.kind.padEnd(9)} v${l.harnessVersion} via ${l.via}] ${l.text}`);
+    if (!hits.length) console.log("no lessons");
     return;
   }
   if (cmd === "export") {

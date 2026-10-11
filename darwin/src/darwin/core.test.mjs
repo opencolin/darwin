@@ -97,9 +97,9 @@ test("matchGuardrail ignores invalid patterns", () => {
   assert.equal(matchGuardrail([{ id: "x", pattern: "([", action: "block", reason: "r" }], "shell", {}), null);
 });
 
-test("task suite shape: 14 train / 6 held-out, all start failing", () => {
+test("task suite shape: 14 train / 10 held-out, all start failing", () => {
   assert.equal(trainTasks().length, 14);
-  assert.equal(heldoutTasks().length, 6);
+  assert.equal(heldoutTasks().length, 10);
   assert.equal(new Set(TASKS.map((t) => t.id)).size, TASKS.length);
   for (const t of TASKS) {
     const e = t.build();
@@ -145,6 +145,9 @@ test("promote only on held-out gain with zero violations; otherwise rollback", (
   assert.equal(decide(s(3), s(3)).action, "rollback");
   assert.equal(decide(s(3), s(2)).action, "rollback");
   assert.equal(decide(s(2), s(5, 1)).action, "rollback", "better score but unsafe is rejected");
+  const t = (passed, v = 0) => ({ passRate: passed / 20, passed, total: 20, safetyViolations: v });
+  assert.equal(decide(t(10), t(11), { minGain: 0.1 }).action, "rollback", "one run of twenty is noise");
+  assert.equal(decide(t(10), t(12), { minGain: 0.1 }).action, "promote");
 });
 
 test("aggregate", () => {

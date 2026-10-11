@@ -68,9 +68,11 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T, i: nu
 export async function runSuite(
   h: Harness,
   tasks: Task[],
-  opts: { concurrency: number; convoId?: string; lessonsFor?: EvolveHooks["lessonsFor"]; log?: (s: string) => void },
+  opts: { concurrency: number; convoId?: string; lessonsFor?: EvolveHooks["lessonsFor"]; log?: (s: string) => void; reps?: number },
 ): Promise<RunRecord[]> {
-  return mapLimit(tasks, opts.concurrency, async (t) => {
+  // reps > 1 runs every task several times: the models are non-deterministic, so a score over 2x10 runs is far less noisy than over 6.
+  const list = Array.from({ length: Math.max(1, opts.reps ?? 1) }, () => tasks).flat();
+  return mapLimit(list, opts.concurrency, async (t) => {
     const lessons = opts.lessonsFor ? await opts.lessonsFor(t, h) : [];
     const r = await runTask(h, t, { lessons, convoId: opts.convoId });
     opts.log?.(`    ${r.outcome.passed ? "pass" : "FAIL"}  ${t.id.padEnd(14)} ${r.outcome.failureCategory ?? ""}${r.outcome.violations.length ? "  !! " + r.outcome.violations[0] : ""}`);
@@ -87,9 +89,13 @@ export async function evolve(opts: {
   hooks?: EvolveHooks;
   historyFile?: string | null;
   evolveId?: string;
+  /** How many times each held-out task is run per evaluation (default 2). */
+  heldoutReps?: number;
 }): Promise<{ active: Harness; history: Generation[] }> {
   const log = opts.log ?? (() => {});
   const conc = opts.concurrency ?? 5;
+  const reps = opts.heldoutReps ?? 2;
+  const MIN_GAIN = 0.1; // promote only on a >= 10 point held-out gain (2 of 20 runs), well above run-to-run noise
   const hooks = opts.hooks ?? {};
   const c = config();
   const evolveId = opts.evolveId ?? randomUUID().slice(0, 8);
@@ -102,7 +108,7 @@ export async function evolve(opts: {
   log(`\nDARWIN evolve ${evolveId}  worker=${c.workerModel}  meta=${c.metaModel}`);
   log(`GEN 0  harness v${active.version}: ${active.systemRules.length} rules, ${active.guardrails.length} guardrails, tools [${active.toolAllowlist.join(" ")}]`);
   log(`  held-out eval:`);
-  const baseRuns = await runSuite(active, heldoutTasks(), { concurrency: conc, convoId: `evolve-${evolveId}-g0-heldout`, lessonsFor: hooks.lessonsFor, log });
+  const baseRuns = await runSuite(active, heldoutTasks(), { concurrency: conc, convoId: `evolve-${evolveId}-g0-heldout`, lessonsFor: hooks.lessonsFor, log, reps });
   await hooks.onRuns?.(baseRuns);
   let activeScore = aggregate(baseRuns.map((r) => r.outcome));
   log(`  => held-out ${pct(activeScore)}  safety violations ${activeScore.safetyViolations}`);
@@ -158,12 +164,12 @@ export async function evolve(opts: {
     await hooks.onHarness?.(candidate);
 
     log(`  held-out eval of v${candidate.version}:`);
-    const candRuns = await runSuite(candidate, heldoutTasks(), { concurrency: conc, convoId: `evolve-${evolveId}-g${gen}-heldout`, lessonsFor: hooks.lessonsFor, log });
+    const candRuns = await runSuite(candidate, heldoutTasks(), { concurrency: conc, convoId: `evolve-${evolveId}-g${gen}-heldout`, lessonsFor: hooks.lessonsFor, log, reps });
     await hooks.onRuns?.(candRuns);
     const candScore = aggregate(candRuns.map((r) => r.outcome));
     record.heldoutAfter = candScore;
 
-    let decision = decide(activeScore, candScore);
+    let decision = decide(activeScore, candScore, { minGain: MIN_GAIN });
     if (hooks.gate) {
       decision = await hooks.gate({ gen, evolveId, candidate, patch: proposal.patch, diff: record.diff, diagnosis: proposal.diagnosis, before: activeScore, after: candScore, auto: decision });
     }
