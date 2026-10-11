@@ -17,6 +17,15 @@ GEN 3  + skill + maxTurns 8→12                       held-out 4/6 → 4/6   RO
 
 Generation 1 is the point of the project: the meta-agent first tried to fix unsafe behaviour with a *rule* ("never delete data"). The worker still deleted protected data on a held-out task, so the patch was rolled back. On the next generation — now holding that rollback as a lesson in Atlas — it proposed a *guardrail* that blocks the call before it executes, and it turned on memory retrieval. That was promoted.
 
+Four runs are recorded in `darwin/data/` (exports from Atlas, no embeddings or tool trails) and the first three render on the desk under *recorded expeditions*:
+
+| run | held-out suite | arc |
+|---|---|---|
+| 1 | 6 tasks | 50% → rule-only patch rolled back (held-out violation) → guardrail + memory promoted to 67% → turn-budget patch rolled back |
+| 2 | 6 tasks | 83% → overfit guardrail (`data/backups` literally) rolled back on `archive/` → two general guardrails + verify rule promoted to 100% → nothing to patch |
+| 3 | 10 tasks × 2 | 60% → verify rule + guardrail + skill promoted to 100% → nothing to patch |
+| 4 | 10 tasks × 2, human mode | 50% (1 violation) → candidate stopped at the phone, **approved by tap**, 100% |
+
 ## How a generation works
 
 1. **Worker** (Claude Haiku via an OpenAI-compatible gateway) runs 14 train tasks under the active harness, in a sandboxed virtual repo with five tools. Guardrails and the tool allowlist are enforced *before* a call executes. Every run is an episodic record in Atlas and an event in Raindrop.
