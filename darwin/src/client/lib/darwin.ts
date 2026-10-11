@@ -85,7 +85,8 @@ export type DarwinState = {
 export type LessonRow = { kind: string; text: string; category?: string; harnessVersion: number; createdAt: string; via: string };
 
 export function useDarwinState(intervalMs = 2000) {
-  return useQuery({ ...modelenceQuery<DarwinState>("darwin.state"), refetchInterval: intervalMs });
+  // Keep polling while the tab is unfocused: a phone on a table must still light up when the loop asks something.
+  return useQuery({ ...modelenceQuery<DarwinState>("darwin.state"), refetchInterval: intervalMs, refetchIntervalInBackground: true, refetchOnWindowFocus: true });
 }
 
 const OP_KEY = "darwin.op";
