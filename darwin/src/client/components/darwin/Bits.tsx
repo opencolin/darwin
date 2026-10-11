@@ -1,7 +1,7 @@
 // Darwin's signature elements (see DESIGN.md): wordmark, gen tag, numeral, diff ledger, lineage.
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/client/lib/utils";
-import type { HarnessSummary } from "@/client/lib/darwin";
+import { patchTitle, pct, type GenerationSummary, type HarnessSummary } from "@/client/lib/darwin";
 
 export function Wordmark({ className }: { className?: string }) {
   return (
@@ -104,5 +104,51 @@ export function Stagger({ i, className, children, style }: { i: number; classNam
     <div className={cn("stagger", className)} style={{ ...style, ["--i" as string]: Math.min(i, 10) }}>
       {children}
     </div>
+  );
+}
+
+export function GenerationCard({ g, i }: { g: GenerationSummary; i: number }) {
+  const promoted = g.decision?.action === "promote";
+  const before = pct(g.heldoutBefore);
+  const after = pct(g.heldoutAfter);
+  return (
+    <Stagger i={i} className="flex flex-col overflow-hidden rounded-md border border-line bg-surface">
+      <div className="p-4 pb-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <GenTag>
+            gen {String(g.gen).padStart(2, "0")} · from v{g.harnessVersion}
+          </GenTag>
+          {g.decision && (
+            <GenTag tone={promoted ? "promote" : "rolled"}>
+              {promoted ? "promoted" : "rolled back"} · v{g.candidateVersion}
+            </GenTag>
+          )}
+          {!g.decision && !g.patch && <GenTag tone="active">nothing to patch</GenTag>}
+        </div>
+        <h2 className="mt-2.5 text-[20px]">{g.patch ? patchTitle(g.patch.ops) : `train ${g.train.passed}/${g.train.total}: no failures`}</h2>
+        <p className="mt-1 font-mono text-xs text-ink-3">
+          train {g.train.passed}/{g.train.total} · cluster {g.largestCluster ?? "none"}
+        </p>
+        {g.diagnosis && (
+          <p className="mt-2 text-[13.5px] leading-snug text-ink-2">
+            {g.diagnosis.slice(0, 220)}
+            {g.diagnosis.length > 220 ? "…" : ""}
+          </p>
+        )}
+      </div>
+      {g.patch && <DiffLedger lines={g.diff} className="mt-3 rounded-none border-x-0 border-b-0" />}
+      <div className="mt-auto grid grid-cols-[auto_auto_1fr] items-end gap-3 border-t border-line p-4">
+        <div>
+          <div className="tag">held-out</div>
+          <Numeral value={before} size="md" />
+        </div>
+        <div className="pb-2 font-mono text-ink-3">→</div>
+        <div>
+          <div className="tag">candidate</div>
+          <Numeral value={after} size="md" />
+        </div>
+      </div>
+      {g.decision && <p className="border-t border-line px-4 py-2 font-mono text-[11.5px] text-ink-3">{g.decision.reason}</p>}
+    </Stagger>
   );
 }

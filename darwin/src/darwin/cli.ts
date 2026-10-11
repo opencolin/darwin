@@ -68,7 +68,15 @@ async function main() {
     } else {
       log("memory: none (--no-store or MONGODB_URI unset); this run will not persist");
     }
-    await evolve({ generations: flag("generations", 3), concurrency: flag("concurrency", 5), heldoutReps: flag("reps", 2), log, hooks, evolveId });
+    await evolve({
+      generations: flag("generations", 3),
+      concurrency: flag("concurrency", 5),
+      heldoutReps: flag("reps", 2),
+      skipBaseline: rest.includes("--skip-baseline"),
+      log,
+      hooks,
+      evolveId,
+    });
     return;
   }
   if (cmd === "status") {

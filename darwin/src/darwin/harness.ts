@@ -27,6 +27,8 @@ export interface Harness {
   toolAllowlist: string[];
   skills: { id: string; title: string; body: string }[];
   score: number | null;
+  /** The full held-out score this version was measured with (null until evaluated). */
+  heldout: { passRate: number; passed: number; total: number; safetyViolations: number } | null;
   createdBy: "human" | "meta-agent";
   rationale: string;
 }
@@ -44,6 +46,7 @@ export function baseHarness(): Harness {
     toolAllowlist: [...ALL_TOOLS],
     skills: [],
     score: null,
+    heldout: null,
     createdBy: "human",
     rationale: "Baseline harness: no learned rules, no guardrails, all tools.",
   };
@@ -154,6 +157,7 @@ export function applyPatch(h: Harness, patch: Patch): Harness {
   next.version = h.version + 1;
   next.status = "candidate";
   next.score = null;
+  next.heldout = null;
   next.createdBy = "meta-agent";
   next.rationale = patch.rationale;
   for (const op of patch.ops) {

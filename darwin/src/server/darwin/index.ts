@@ -22,6 +22,7 @@ function summarizeHarness(h: Harness) {
     parentVersion: h.parentVersion,
     status: h.status,
     score: h.score,
+    heldout: h.heldout ?? null,
     rules: h.systemRules,
     guardrails: h.guardrails,
     toolAllowlist: h.toolAllowlist,

@@ -11,6 +11,7 @@ export type HarnessSummary = {
   parentVersion: number | null;
   status: "candidate" | "active" | "rolled_back" | "superseded";
   score: number | null;
+  heldout: Score | null;
   rules: string[];
   guardrails: Guardrail[];
   toolAllowlist: string[];

@@ -1,9 +1,10 @@
 // / — the desk: what judges see on the projector. The score, the lineage, the latest patches, and the QR to the phone.
 import { QRCodeSVG } from 'qrcode.react';
 import Page from '@/client/components/Page';
-import { DiffLedger, GenTag, Lineage, Numeral, Stagger } from '@/client/components/darwin/Bits';
+import { GenerationCard, Lineage, Numeral } from '@/client/components/darwin/Bits';
+import { Expeditions } from '@/client/components/darwin/Expeditions';
 import { cn } from '@/client/lib/utils';
-import { patchTitle, pct, useDarwinState, useOperatorToken, type GenerationSummary } from '@/client/lib/darwin';
+import { useDarwinState, useOperatorToken } from '@/client/lib/darwin';
 
 export default function HomePage() {
   const { data, error } = useDarwinState(3000);
@@ -99,6 +100,8 @@ export default function HomePage() {
         </section>
       )}
 
+      <Expeditions />
+
       <section className="grid gap-4 md:grid-cols-[1fr_1fr]">
         <Card title="how a generation works">
           <ol className="list-decimal space-y-2 pl-5 text-[14px] text-ink-2">
@@ -148,39 +151,3 @@ function Card({ title, children, className }: { title: string; children: React.R
   );
 }
 
-function GenerationCard({ g, i }: { g: GenerationSummary; i: number }) {
-  const promoted = g.decision?.action === 'promote';
-  const before = pct(g.heldoutBefore);
-  const after = pct(g.heldoutAfter);
-  return (
-    <Stagger i={i} className="flex flex-col overflow-hidden rounded-md border border-line bg-surface">
-      <div className="p-4 pb-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <GenTag>gen {String(g.gen).padStart(2, '0')} · from v{g.harnessVersion}</GenTag>
-          {g.decision && <GenTag tone={promoted ? 'promote' : 'rolled'}>{promoted ? 'promoted' : 'rolled back'} · v{g.candidateVersion}</GenTag>}
-        </div>
-        <h2 className="mt-2.5 text-[20px]">{g.patch ? patchTitle(g.patch.ops) : 'no patch'}</h2>
-        <p className="mt-1 font-mono text-xs text-ink-3">
-          train {g.train.passed}/{g.train.total} · cluster {g.largestCluster ?? 'none'}
-        </p>
-        <p className="mt-2 text-[13.5px] leading-snug text-ink-2">
-          {g.diagnosis.slice(0, 220)}
-          {g.diagnosis.length > 220 ? '…' : ''}
-        </p>
-      </div>
-      <DiffLedger lines={g.diff} className="mt-3 rounded-none border-x-0 border-b-0" />
-      <div className="mt-auto grid grid-cols-[auto_auto_1fr] items-end gap-3 border-t border-line p-4">
-        <div>
-          <div className="tag">held-out</div>
-          <Numeral value={before} size="md" />
-        </div>
-        <div className="pb-2 font-mono text-ink-3">→</div>
-        <div>
-          <div className="tag">candidate</div>
-          <Numeral value={after} size="md" />
-        </div>
-      </div>
-      {g.decision && <p className="border-t border-line px-4 py-2 font-mono text-[11.5px] text-ink-3">{g.decision.reason}</p>}
-    </Stagger>
-  );
-}

@@ -91,6 +91,8 @@ export async function evolve(opts: {
   evolveId?: string;
   /** How many times each held-out task is run per evaluation (default 2). */
   heldoutReps?: number;
+  /** Reuse the active harness's stored held-out score instead of re-measuring it at generation 0 (live demos). */
+  skipBaseline?: boolean;
 }): Promise<{ active: Harness; history: Generation[] }> {
   const log = opts.log ?? (() => {});
   const conc = opts.concurrency ?? 5;
@@ -107,12 +109,19 @@ export async function evolve(opts: {
   let nextVersion = ((await hooks.maxVersion?.()) ?? active.version) + 1;
   log(`\nDARWIN evolve ${evolveId}  worker=${c.workerModel}  meta=${c.metaModel}`);
   log(`GEN 0  harness v${active.version}: ${active.systemRules.length} rules, ${active.guardrails.length} guardrails, tools [${active.toolAllowlist.join(" ")}]`);
-  log(`  held-out eval:`);
-  const baseRuns = await runSuite(active, heldoutTasks(), { concurrency: conc, convoId: `evolve-${evolveId}-g0-heldout`, lessonsFor: hooks.lessonsFor, log, reps });
-  await hooks.onRuns?.(baseRuns);
-  let activeScore = aggregate(baseRuns.map((r) => r.outcome));
-  log(`  => held-out ${pct(activeScore)}  safety violations ${activeScore.safetyViolations}`);
+  let activeScore: Score;
+  if (opts.skipBaseline && active.heldout) {
+    activeScore = active.heldout;
+    log(`  held-out (stored) ${pct(activeScore)}  safety violations ${activeScore.safetyViolations}`);
+  } else {
+    log(`  held-out eval:`);
+    const baseRuns = await runSuite(active, heldoutTasks(), { concurrency: conc, convoId: `evolve-${evolveId}-g0-heldout`, lessonsFor: hooks.lessonsFor, log, reps });
+    await hooks.onRuns?.(baseRuns);
+    activeScore = aggregate(baseRuns.map((r) => r.outcome));
+    log(`  => held-out ${pct(activeScore)}  safety violations ${activeScore.safetyViolations}`);
+  }
   active.score = activeScore.passRate;
+  active.heldout = activeScore;
   await hooks.onHarness?.(active);
 
   for (let gen = 1; gen <= opts.generations; gen++) {
@@ -168,6 +177,7 @@ export async function evolve(opts: {
     await hooks.onRuns?.(candRuns);
     const candScore = aggregate(candRuns.map((r) => r.outcome));
     record.heldoutAfter = candScore;
+    candidate.heldout = candScore;
 
     let decision = decide(activeScore, candScore, { minGain: MIN_GAIN });
     if (hooks.gate) {
