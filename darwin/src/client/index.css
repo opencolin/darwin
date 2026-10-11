@@ -1,0 +1,187 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@source "./";
+
+/* Darwin design tokens — see DESIGN.md ("the naturalist's ledger"). */
+@theme {
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-sans: "Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --color-paper: #f3ede1;
+  --color-surface: #fbf7ef;
+  --color-surface-2: #ede5d5;
+  --color-ink: #1e1b16;
+  --color-ink-2: #5c554a;
+  --color-ink-3: #8a8275;
+  --color-line: #d8cebb;
+  --color-line-strong: #b9ad95;
+  --color-tide: #0f6e73;
+  --color-tide-ink: #0a4f53;
+  --color-tide-soft: #d7ecec;
+  --color-promote: #2e6b3f;
+  --color-promote-soft: #dcebdd;
+  --color-rollback: #a8472b;
+  --color-rollback-soft: #f2dcd3;
+  --color-pending: #a9731c;
+  --color-pending-soft: #f4e6c9;
+  --color-violation: #8f1d1d;
+  --color-violation-soft: #f1d5d5;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --shadow-lift: 0 12px 32px -12px rgb(30 27 22 / 0.35), 0 1px 0 rgb(30 27 22 / 0.06);
+
+  --animate-fade-in: fade-in 240ms ease-out both;
+  --animate-rise: rise 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pulse-tide: pulse-tide 1.6s ease-in-out infinite;
+  --animate-tick: tick 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-draw: draw 900ms ease-out both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes pulse-tide {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-tide) 45%, transparent); }
+    50% { box-shadow: 0 0 0 6px transparent; }
+  }
+  @keyframes tick {
+    0% { transform: translateY(0.35em); opacity: 0; filter: blur(2px); }
+    100% { transform: none; opacity: 1; filter: none; }
+  }
+  @keyframes draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+  }
+}
+
+/* Night watch (dark) — explicit data-theme wins; otherwise follow the system. */
+:root[data-theme="dark"] {
+  --color-paper: #121619;
+  --color-surface: #1a2024;
+  --color-surface-2: #232b30;
+  --color-ink: #ece6d8;
+  --color-ink-2: #b5ac9c;
+  --color-ink-3: #80786b;
+  --color-line: #2e3740;
+  --color-line-strong: #45505a;
+  --color-tide: #49b3b8;
+  --color-tide-ink: #7fd0d3;
+  --color-tide-soft: #143538;
+  --color-promote: #6dbf7e;
+  --color-promote-soft: #1c3323;
+  --color-rollback: #e07a5a;
+  --color-rollback-soft: #3b2219;
+  --color-pending: #d9a64a;
+  --color-pending-soft: #3a2e14;
+  --color-violation: #e36a6a;
+  --color-violation-soft: #3d1a1a;
+  --shadow-lift: 0 12px 32px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 255 255 / 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-paper: #121619;
+    --color-surface: #1a2024;
+    --color-surface-2: #232b30;
+    --color-ink: #ece6d8;
+    --color-ink-2: #b5ac9c;
+    --color-ink-3: #80786b;
+    --color-line: #2e3740;
+    --color-line-strong: #45505a;
+    --color-tide: #49b3b8;
+    --color-tide-ink: #7fd0d3;
+    --color-tide-soft: #143538;
+    --color-promote: #6dbf7e;
+    --color-promote-soft: #1c3323;
+    --color-rollback: #e07a5a;
+    --color-rollback-soft: #3b2219;
+    --color-pending: #d9a64a;
+    --color-pending-soft: #3a2e14;
+    --color-violation: #e36a6a;
+    --color-violation-soft: #3d1a1a;
+    --shadow-lift: 0 12px 32px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+}
+
+@layer base {
+  /* Base UI: a stacking context at the root so portalled popups layer above page content. */
+  html {
+    isolation: isolate;
+    color-scheme: light dark;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    position: relative;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  @media (min-width: 768px) {
+    body { font-size: 16px; }
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 72;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  code, kbd, pre {
+    font-family: var(--font-mono);
+  }
+  ::selection {
+    background: var(--color-tide-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-tide);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Specimen tag: ledger-style section label. */
+@utility tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}
+/* Hairline rule between ledger sections. */
+@utility rule {
+  border-top: 1px solid var(--color-line);
+}
+/* Diff ledger rows. */
+@utility diff-add {
+  background: var(--color-promote-soft);
+  color: var(--color-promote);
+}
+@utility diff-del {
+  background: var(--color-rollback-soft);
+  color: var(--color-rollback);
+}
+@utility diff-mod {
+  background: var(--color-pending-soft);
+  color: var(--color-pending);
+}
+/* Staggered entrance: set style={{ "--i": index }} on each row. */
+@utility stagger {
+  animation: var(--animate-rise);
+  animation-delay: calc(var(--i, 0) * 60ms);
+}

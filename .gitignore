@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.modelence.env
+.modelence.backup.env
+.modelence/
+.darwin/
+.DS_Store
+*.log
+# Atlas Agent Engine scaffold (not part of the demo)
+darwin-worker/

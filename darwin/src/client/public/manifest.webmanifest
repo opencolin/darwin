@@ -1,0 +1,11 @@
+{
+  "name": "Darwin",
+  "short_name": "Darwin",
+  "description": "Approve or reject harness patches, freeze the meta-agent, watch the loop run.",
+  "start_url": "/m",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f3ede1",
+  "theme_color": "#0f6e73",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
