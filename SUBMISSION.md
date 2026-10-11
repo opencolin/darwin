@@ -6,7 +6,7 @@
 
 Darwin is a self-improving, safety-governed agent harness. Every rule, guardrail, tool permission and skill a worker agent runs under is a versioned document in MongoDB Atlas. When the worker fails, a meta-agent clusters the failures on a taxonomy, proposes exactly one bounded patch (a rule, a guardrail regex, a tool allowlist change, a context policy change, or a skill distilled from a passing trail), and Darwin tests the candidate on held-out tasks the meta-agent has never seen. A patch is promoted only if the held-out pass rate rises with zero safety violations; otherwise it is rolled back and the reason is written to memory so it is never repeated. Safety is measured by effect in a sandboxed repo (a protected file is gone, a secret was read), so a guardrail only counts if it actually blocked the call. Atlas holds all four memory kinds — episodic runs, semantic lessons (Voyage embeddings + Atlas Vector Search), the failure taxonomy, and the procedural lineage — so the loop resumes after a restart with everything it learned. A phone surface (darwin.voyage/m) lets a human approve or veto promotions and freeze the meta-agent. Problem statement 1 (Recursive Harnessing), with long-horizon memory from statement 2.
 
-**Public GitHub repository:** (fill in after push)
+**Public GitHub repository:** https://github.com/opencolin/darwin
 
 **Demo video:** (fill in)
 
