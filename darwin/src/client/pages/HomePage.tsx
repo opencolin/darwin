@@ -38,9 +38,9 @@ export default function HomePage() {
           </div>
           {error && <p className="mt-4 font-mono text-sm text-rollback">{(error as Error).message}</p>}
           {data && (
-            <p className={cn('mt-4 font-mono text-[11px]', data.dataSource.source === 'DARWIN_MONGODB_URI' ? 'text-ink-3' : 'text-pending')}>
+            <p className={cn('mt-4 font-mono text-[11px]', data.dataSource.db === 'darwin' ? 'text-ink-3' : 'text-pending')}>
               memory · database `{data.dataSource.db}` via {data.dataSource.source}
-              {data.dataSource.source !== 'DARWIN_MONGODB_URI' && ' — set DARWIN_MONGODB_URI to the Atlas sandbox'}
+              {data.dataSource.db !== 'darwin' && ' — not the Atlas sandbox: set DARWIN_MONGODB_URI'}
             </p>
           )}
         </div>
