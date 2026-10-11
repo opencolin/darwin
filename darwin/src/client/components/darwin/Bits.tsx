@@ -1,7 +1,7 @@
 // Darwin's signature elements (see DESIGN.md): wordmark, gen tag, numeral, diff ledger, lineage.
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/client/lib/utils";
-import { patchTitle, pct, type GenerationSummary, type HarnessSummary } from "@/client/lib/darwin";
+import { humanCategory, patchTitle, pct, STATUS_WORDS, type Approval, type GenerationSummary, type HarnessSummary } from "@/client/lib/darwin";
 
 export function Wordmark({ className }: { className?: string }) {
   return (
@@ -78,7 +78,7 @@ export function Lineage({ versions, className }: { versions: HarnessSummary[]; c
           const st = h.status;
           const fill = st === "active" ? "var(--color-tide)" : st === "superseded" ? "var(--color-ink-3)" : "var(--color-paper)";
           const stroke = st === "rolled_back" ? "var(--color-rollback)" : st === "candidate" ? "var(--color-pending)" : fill;
-          const label = st === "active" ? "active" : st === "rolled_back" ? "rolled back" : st === "candidate" ? "pending" : "superseded";
+          const label = STATUS_WORDS[st];
           return (
             <g key={h.version}>
               <circle cx={x} cy={28} r={7} fill={fill} stroke={stroke} strokeWidth="1.5" strokeDasharray={st === "candidate" ? "3 2" : undefined} />
@@ -116,18 +116,18 @@ export function GenerationCard({ g, i }: { g: GenerationSummary; i: number }) {
       <div className="p-4 pb-0">
         <div className="flex flex-wrap items-center gap-2">
           <GenTag>
-            gen {String(g.gen).padStart(2, "0")} · from v{g.harnessVersion}
+            round {g.gen} · from rulebook v{g.harnessVersion}
           </GenTag>
           {g.decision && (
             <GenTag tone={promoted ? "promote" : "rolled"}>
-              {promoted ? "promoted" : "rolled back"} · v{g.candidateVersion}
+              {promoted ? "kept" : "thrown out"} · v{g.candidateVersion}
             </GenTag>
           )}
-          {!g.decision && !g.patch && <GenTag tone="active">nothing to patch</GenTag>}
+          {!g.decision && !g.patch && <GenTag tone="active">no mistakes left</GenTag>}
         </div>
-        <h2 className="mt-2.5 text-[20px]">{g.patch ? patchTitle(g.patch.ops) : `train ${g.train.passed}/${g.train.total}: no failures`}</h2>
+        <h2 className="mt-2.5 text-[20px]">{g.patch ? `Proposed: ${patchTitle(g.patch.ops)}` : `Practice ${g.train.passed}/${g.train.total}: nothing to fix`}</h2>
         <p className="mt-1 font-mono text-xs text-ink-3">
-          train {g.train.passed}/{g.train.total} · cluster {g.largestCluster ?? "none"}
+          practice {g.train.passed}/{g.train.total} · biggest problem: {humanCategory(g.largestCluster)}
         </p>
         {g.diagnosis && (
           <p className="mt-2 text-[13.5px] leading-snug text-ink-2">
@@ -139,16 +139,81 @@ export function GenerationCard({ g, i }: { g: GenerationSummary; i: number }) {
       {g.patch && <DiffLedger lines={g.diff} className="mt-3 rounded-none border-x-0 border-b-0" />}
       <div className="mt-auto grid grid-cols-[auto_auto_1fr] items-end gap-3 border-t border-line p-4">
         <div>
-          <div className="tag">held-out</div>
+          <div className="tag">surprise test before</div>
           <Numeral value={before} size="md" />
         </div>
         <div className="pb-2 font-mono text-ink-3">→</div>
         <div>
-          <div className="tag">candidate</div>
+          <div className="tag">with the change</div>
           <Numeral value={after} size="md" />
         </div>
       </div>
-      {g.decision && <p className="border-t border-line px-4 py-2 font-mono text-[11.5px] text-ink-3">{g.decision.reason}</p>}
+      {g.decision && <p className="border-t border-line px-4 py-2 font-mono text-[11.5px] text-ink-3">{decisionWords(g.decision.reason)}</p>}
+    </Stagger>
+  );
+}
+
+/** Decision reasons in words: "held-out 50% -> 100%" -> "surprise test 50% → 100%". */
+export function decisionWords(reason: string): string {
+  return reason
+    .replace(/held-out/g, "surprise test")
+    .replace(/->/g, "→")
+    .replace(/candidate caused (\d+) safety violation\(s\) on surprise test tasks/, "it did something dangerous $1 time(s) on the surprise test")
+    .replace(/no surprise test improvement/, "the surprise-test score did not go up")
+    .replace(/approved by phone/, "you approved it")
+    .replace(/rejected by phone/, "you rejected it");
+}
+
+export function ApprovalCard({ a, i, actions }: { a: Approval; i: number; actions?: ReactNode }) {
+  const before = pct(a.before);
+  const after = pct(a.after);
+  const delta = (after ?? 0) - (before ?? 0);
+  return (
+    <Stagger i={i}>
+      <article className="overflow-hidden rounded-md border-2 border-pending bg-surface">
+        <div className="p-4 pb-0">
+          <GenTag tone="pending">
+            waiting for you · round {a.gen} · rulebook v{a.candidateVersion}
+          </GenTag>
+          <h2 className="mt-2.5 text-[21px]">Proposed: {patchTitle(a.patch.ops)}</h2>
+          <p className="mt-1 font-mono text-xs text-ink-3">
+            replaces v{a.parentVersion} · {a.diagnosis.slice(0, 110)}
+            {a.diagnosis.length > 110 ? "…" : ""}
+          </p>
+          <p className="tag mt-3">why the AI wants this</p>
+          <blockquote className="mt-1.5 border-l-2 border-line-strong pl-3 font-display text-[15.5px] italic leading-snug" style={{ fontVariationSettings: '"opsz" 24' }}>
+            “{a.patch.rationale}”
+          </blockquote>
+          <p className="tag mt-3">the change</p>
+        </div>
+        <DiffLedger lines={a.diff} className="mt-1.5 rounded-none border-x-0 border-b-0" />
+        <div className="grid grid-cols-[auto_auto_1fr] items-end gap-3.5 border-t border-line p-4">
+          <div>
+            <div className="tag">surprise test before</div>
+            <Numeral value={before} size="md" />
+          </div>
+          <div className="pb-2 font-mono text-ink-3">→</div>
+          <div>
+            <div className="tag">with this change</div>
+            <Numeral value={after} size="md" />{" "}
+            <span className={cn("font-mono text-xs font-semibold", delta >= 0 ? "text-promote" : "text-rollback")}>
+              {delta >= 0 ? "+" : ""}
+              {delta}
+            </span>
+          </div>
+        </div>
+        <div className="px-4 pb-4">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em]",
+              a.after.safetyViolations ? "bg-violation-soft text-violation" : "bg-promote-soft text-promote",
+            )}
+          >
+            {a.after.safetyViolations ? `✕ did something dangerous ${a.after.safetyViolations}× on the surprise test` : "✓ nothing dangerous on the surprise test"}
+          </span>
+        </div>
+        {actions && <div className="border-t border-line p-3">{actions}</div>}
+      </article>
     </Stagger>
   );
 }

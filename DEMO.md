@@ -45,7 +45,7 @@ Screen-record the desk + terminal, phone in hand; voice-over:
 2. (10–25 s) Terminal: `evolve --generations 1 --mode human`. "It runs 14 tasks, clusters the failures, and a meta-agent proposes one patch. Then it's tested on held-out tasks it has never seen."
 3. (25–40 s) Expedition 1 on the desk. "A rule alone got rolled back — the agent still deleted protected data. The guardrail that followed blocks the call and was promoted. Memory is Voyage embeddings and Atlas Vector Search."
 4. (40–55 s) Phone: pending card → tap Promote → desk score ticks. "A human can veto from a phone; nobody can override a safety rollback."
-5. (55–60 s) "darwin.voyage — the harness that shows its work."
+5. (55–60 s) "darwin.voyage — agents that rewrite their own rulebook, safely."
 
 ## Q&A ammunition
 

@@ -1,14 +1,25 @@
-// /m — the governance phone. Pending patches to approve, the live loop, the lineage, and memory.
+// /m — the phone. What's waiting for you, the live round, the rulebook history, and memory.
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 import { modelenceQuery } from "@modelence/react-query";
 import { Seo } from "@/client/components/Seo";
 import { cn } from "@/client/lib/utils";
-import { DiffLedger, GenTag, Lineage, Numeral, Stagger, Wordmark } from "@/client/components/darwin/Bits";
-import { patchTitle, pct, useDarwinMutation, useDarwinState, useOperatorToken, type Approval, type DarwinState, type LessonRow } from "@/client/lib/darwin";
+import { ApprovalCard, decisionWords, GenTag, Lineage, Stagger, Wordmark } from "@/client/components/darwin/Bits";
+import {
+  humanCategory,
+  patchTitle,
+  pct,
+  STATUS_WORDS,
+  useDarwinMutation,
+  useDarwinState,
+  useOperatorToken,
+  type Approval,
+  type DarwinState,
+  type LessonRow,
+} from "@/client/lib/darwin";
 
-type Tab = "pending" | "live" | "lineage" | "memory";
+type Tab = "pending" | "live" | "history" | "memory";
 
 export default function MobilePage() {
   const { data, error } = useDarwinState(2000);
@@ -34,10 +45,10 @@ export default function MobilePage() {
       <Tabs tab={tab} setTab={setTab} pendingCount={pendingCount} />
       <main className="flex-1 px-4 pb-32 pt-3">
         {error && <p className="font-mono text-sm text-rollback">{(error as Error).message}</p>}
-        {!data && !error && <p className="tag">connecting to atlas…</p>}
+        {!data && !error && <p className="tag">connecting…</p>}
         {data && tab === "pending" && <PendingTab data={data} canAct={canAct} op={op} />}
         {data && tab === "live" && <LiveTab data={data} />}
-        {data && tab === "lineage" && <LineageTab data={data} />}
+        {data && tab === "history" && <HistoryTab data={data} />}
         {data && tab === "memory" && <MemoryTab data={data} />}
       </main>
     </div>
@@ -55,11 +66,12 @@ function Header({ data, canAct, op }: { data?: DarwinState; canAct: boolean; op?
         <div className="flex items-center gap-3">
           <button
             type="button"
+            title="Ask me first: changes wait for your OK. Auto: changes that pass the surprise test are kept without asking."
             disabled={!canAct || !s || setMode.isPending}
             onClick={() => s && setMode.mutate({ mode: s.mode === "auto" ? "human" : "auto", op })}
             className="tag whitespace-nowrap rounded-xs border border-line-strong px-2 py-1.5 transition-colors hover:bg-surface-2 disabled:opacity-50"
           >
-            {s?.mode === "human" ? "mode · human" : "mode · auto"}
+            {s?.mode === "human" ? "ask me first" : "auto-approve"}
           </button>
           <span className="flex items-center gap-2">
             <span className="tag">{s?.frozen ? "frozen" : "live"}</span>
@@ -67,7 +79,7 @@ function Header({ data, canAct, op }: { data?: DarwinState; canAct: boolean; op?
               type="button"
               role="switch"
               aria-checked={!s?.frozen}
-              aria-label="meta-agent may change the harness"
+              aria-label="allow the AI to change its rulebook"
               disabled={!canAct || !s || setFrozen.isPending}
               onClick={() => s && setFrozen.mutate({ frozen: !s.frozen, op })}
               className={cn("relative h-[22px] w-10 rounded-full transition-colors disabled:opacity-50", s?.frozen ? "bg-line-strong" : "bg-tide")}
@@ -79,11 +91,13 @@ function Header({ data, canAct, op }: { data?: DarwinState; canAct: boolean; op?
       </div>
       {s?.frozen && (
         <div className="mt-3 rounded-sm bg-pending-soft px-3 py-2 font-mono text-[11px] uppercase leading-relaxed tracking-[0.06em] text-pending">
-          ◼ harness frozen — the meta-agent cannot change it until you unfreeze
+          ◼ frozen — the AI can't change its rulebook until you flip this back on
         </div>
       )}
       {data && !canAct && (
-        <div className="mt-3 rounded-sm bg-surface-2 px-3 py-2 font-mono text-[11px] uppercase leading-relaxed tracking-[0.06em] text-ink-3">view only · scan the operator qr on the desk to act</div>
+        <div className="mt-3 rounded-sm bg-surface-2 px-3 py-2 font-mono text-[11px] uppercase leading-relaxed tracking-[0.06em] text-ink-3">
+          view only · open the operator link once to approve changes
+        </div>
       )}
     </header>
   );
@@ -91,9 +105,9 @@ function Header({ data, canAct, op }: { data?: DarwinState; canAct: boolean; op?
 
 function Tabs({ tab, setTab, pendingCount }: { tab: Tab; setTab: (t: Tab) => void; pendingCount: number }) {
   const items: [Tab, string][] = [
-    ["pending", "Pending"],
+    ["pending", "For you"],
     ["live", "Live"],
-    ["lineage", "Lineage"],
+    ["history", "History"],
     ["memory", "Memory"],
   ];
   return (
@@ -124,10 +138,10 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
           <p className="tag">nothing waiting on you</p>
           <p className="mt-2 font-display text-[19px] leading-snug">
             {data.settings.frozen
-              ? "The harness is frozen. Every proposed patch is rejected until you unfreeze."
+              ? "Frozen. Every change the AI proposes is thrown out until you unfreeze."
               : data.settings.mode === "auto"
-                ? "Auto-promote is on: the loop decides alone on the held-out score."
-                : "Human-in-the-loop is on: the next patch that improves held-out stops here for you."}
+                ? "Auto-approve is on: a change that passes the surprise test is kept without asking you."
+                : "Ask-me-first is on: the next change that passes the surprise test stops here for your OK."}
           </p>
         </div>
         <RecentDecisions recent={data.recent} />
@@ -138,7 +152,7 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
   const onDecide = (a: Approval, status: "promote" | "reject") =>
     decide.mutate(
       { id: a._id, status, op },
-      { onSuccess: () => toast.success(status === "promote" ? `Promoted v${a.candidateVersion}` : `Rejected v${a.candidateVersion}`) },
+      { onSuccess: () => toast.success(status === "promote" ? `Kept rulebook v${a.candidateVersion}` : `Threw out v${a.candidateVersion}`) },
     );
   return (
     <div className="space-y-4">
@@ -153,7 +167,7 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
           onClick={() => onDecide(first, "reject")}
           className="h-12 rounded-sm border border-rollback font-semibold text-rollback transition-colors hover:bg-rollback-soft disabled:opacity-50"
         >
-          Reject
+          Throw away
         </button>
         <button
           type="button"
@@ -161,78 +175,33 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
           onClick={() => onDecide(first, "promote")}
           className="h-12 rounded-sm bg-promote font-semibold text-paper transition-colors hover:brightness-95 disabled:opacity-50"
         >
-          Promote v{first.candidateVersion}
+          Keep v{first.candidateVersion}
         </button>
       </div>
     </div>
   );
 }
 
-function ApprovalCard({ a, i }: { a: Approval; i: number }) {
-  const before = pct(a.before);
-  const after = pct(a.after);
-  const delta = (after ?? 0) - (before ?? 0);
-  return (
-    <Stagger i={i}>
-      <article className="overflow-hidden rounded-md border border-line bg-surface">
-        <div className="p-4 pb-0">
-          <GenTag tone="pending">
-            pending · gen {String(a.gen).padStart(2, "0")} · candidate v{a.candidateVersion}
-          </GenTag>
-          <h2 className="mt-2.5 text-[21px]">{patchTitle(a.patch.ops)}</h2>
-          <p className="mt-1 font-mono text-xs text-ink-3">from v{a.parentVersion} · {a.diagnosis.slice(0, 110)}{a.diagnosis.length > 110 ? "…" : ""}</p>
-          <blockquote className="mt-3 border-l-2 border-line-strong pl-3 font-display text-[15.5px] italic leading-snug" style={{ fontVariationSettings: '"opsz" 24' }}>
-            “{a.patch.rationale}”
-          </blockquote>
-        </div>
-        <DiffLedger lines={a.diff} className="mt-3.5 rounded-none border-x-0 border-b-0" />
-        <div className="grid grid-cols-[auto_auto_1fr] items-end gap-3.5 border-t border-line p-4">
-          <div>
-            <div className="tag">held-out before</div>
-            <Numeral value={before} size="md" />
-          </div>
-          <div className="pb-2 font-mono text-ink-3">→</div>
-          <div>
-            <div className="tag">candidate</div>
-            <Numeral value={after} size="md" />{" "}
-            <span className={cn("font-mono text-xs font-semibold", delta >= 0 ? "text-promote" : "text-rollback")}>
-              {delta >= 0 ? "+" : ""}
-              {delta}
-            </span>
-          </div>
-        </div>
-        <div className="px-4 pb-4">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em]",
-              a.after.safetyViolations ? "bg-violation-soft text-violation" : "bg-promote-soft text-promote",
-            )}
-          >
-            {a.after.safetyViolations ? `✕ ${a.after.safetyViolations} safety violation(s) on held-out` : "✓ 0 safety violations on held-out"}
-          </span>
-        </div>
-      </article>
-    </Stagger>
-  );
-}
-
 function RecentDecisions({ recent }: { recent: Approval[] }) {
   if (!recent.length) return null;
+  const who = (by?: string) => (by === "phone" ? "you" : by === "auto" ? "automatic" : (by ?? "—"));
   return (
     <section>
-      <p className="tag border-b border-line pb-2">recent decisions</p>
+      <p className="tag border-b border-line pb-2">what happened recently</p>
       <div className="mt-2 overflow-hidden rounded-md border border-line bg-surface">
         {recent.map((a, i) => (
           <Stagger i={i} key={a._id} className="border-b border-line px-3 py-2.5 last:border-b-0">
             <div className="flex items-center justify-between gap-2">
               <GenTag tone={a.status === "promote" ? "promote" : "rolled"}>
-                {a.status === "promote" ? "promoted" : "rolled back"} · v{a.candidateVersion}
+                {a.status === "promote" ? "kept" : "thrown out"} · v{a.candidateVersion}
               </GenTag>
               <span className="font-mono text-[11px] text-ink-3">
-                {pct(a.before)}% → {pct(a.after)}% · {a.decidedBy}
+                {pct(a.before)}% → {pct(a.after)}% · {who(a.decidedBy)}
               </span>
             </div>
-            <p className="mt-1.5 text-[13px] text-ink-2">{patchTitle(a.patch.ops)} — {a.auto.reason}</p>
+            <p className="mt-1.5 text-[13px] text-ink-2">
+              {patchTitle(a.patch.ops)} — {decisionWords(a.auto.reason)}
+            </p>
           </Stagger>
         ))}
       </div>
@@ -248,67 +217,70 @@ function LiveTab({ data }: { data: DarwinState }) {
     <div className="animate-rise">
       <div className="tag flex items-center gap-2">
         {data.liveActive && <i className="inline-block h-2 w-2 rounded-full bg-tide animate-pulse-tide" />}
-        {data.liveActive ? "running" : "idle"} · harness v{data.active?.version ?? "–"} · {passed} of {runs.length} passed
+        {data.liveActive ? "running" : "idle"} · rulebook v{data.active?.version ?? "–"} · {passed} of {runs.length} tasks passed
       </div>
       <h2 className="mt-2 text-[21px]">
-        {data.liveActive ? "Running the loop" : g ? `Last: ${g.decision?.action === "promote" ? "promoted" : "rolled back"} v${g.candidateVersion}` : "No generations yet"}
+        {data.liveActive ? "Running a round" : g ? `Last round: ${g.decision ? (g.decision.action === "promote" ? "kept" : "threw out") : "no changes to"} v${g.candidateVersion ?? g.harnessVersion}` : "No rounds yet"}
       </h2>
       {g && (
         <div className="mt-3 rounded-md border border-line bg-surface p-3 text-[13px] leading-snug text-ink-2">
-          <span className="font-mono text-ink">gen {g.gen}</span> · train {g.train.passed}/{g.train.total} · largest cluster <span className="font-mono text-ink">{g.largestCluster ?? "none"}</span>
+          <span className="font-mono text-ink">round {g.gen}</span> · practice {g.train.passed}/{g.train.total} · biggest problem:{" "}
+          <span className="font-mono text-ink">{humanCategory(g.largestCluster)}</span>
           <br />
           {g.diagnosis.slice(0, 240)}
           {g.diagnosis.length > 240 ? "…" : ""}
         </div>
       )}
-      <div className="mt-3 overflow-hidden rounded-md border border-line bg-surface">
+      <p className="tag mt-4 border-b border-line pb-2">every task it tried · newest first</p>
+      <div className="mt-2 overflow-hidden rounded-md border border-line bg-surface">
         {runs.map((r, i) => {
           const [status, tone] = r.outcome.violations.length
-            ? ["viol.", "text-violation"]
+            ? ["unsafe", "text-violation"]
             : !r.outcome.passed
-              ? ["fail", "text-rollback"]
+              ? ["failed", "text-rollback"]
               : r.outcome.blockedBy.length
-                ? ["guarded", "text-pending"]
-                : ["pass", "text-promote"];
-          const why = r.outcome.violations[0] ?? r.outcome.failureCategory ?? (r.outcome.blockedBy[0] ? `blocked: ${r.outcome.blockedBy[0]}` : `${r.turns} turns`);
+                ? ["blocked", "text-pending"]
+                : ["passed", "text-promote"];
+          const why = r.outcome.violations[0] ?? (r.outcome.failureCategory ? humanCategory(r.outcome.failureCategory) : null) ?? (r.outcome.blockedBy[0] ? `guardrail ${r.outcome.blockedBy[0]} stepped in` : `${r.turns} turns`);
           return (
             <Stagger i={i} key={r.taskId + r.createdAt} className="grid grid-cols-[62px_1fr_auto] gap-2.5 border-b border-line px-3 py-2 font-mono text-[12.5px] last:border-b-0">
               <span className={cn("font-semibold", tone)}>{status}</span>
               <span>
                 {r.taskId}
-                <span className="text-ink-3"> · {r.split}</span>
+                <span className="text-ink-3"> · {r.split === "heldout" ? "surprise test" : "practice"}</span>
               </span>
               <span className="max-w-[150px] truncate text-ink-3">{why}</span>
             </Stagger>
           );
         })}
-        {!runs.length && <div className="px-3 py-2 font-mono text-[12.5px] text-ink-3">no runs yet — start `darwin evolve`</div>}
+        {!runs.length && <div className="px-3 py-2 font-mono text-[12.5px] text-ink-3">nothing yet — start a round from the laptop</div>}
       </div>
     </div>
   );
 }
 
-function LineageTab({ data }: { data: DarwinState }) {
+function HistoryTab({ data }: { data: DarwinState }) {
   const h = data.active;
   return (
     <div className="animate-rise space-y-4">
+      <p className="tag">rulebook history · filled = in use · ⊗ = thrown out · dotted = waiting</p>
       <Lineage versions={data.lineage} className="rounded-md border border-line bg-surface px-2 py-2" />
       {h && (
         <section className="rounded-md border border-line bg-surface p-4">
-          <GenTag tone="active">active · v{h.version}</GenTag>
+          <GenTag tone="active">in use · rulebook v{h.version}</GenTag>
           <h2 className="mt-2.5 text-[21px]">{h.rationale}</h2>
-          <p className="tag mt-4 border-b border-line pb-2">rules</p>
+          <p className="tag mt-4 border-b border-line pb-2">rules it follows</p>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-[13.5px] text-ink-2">
             {h.rules.map((r, i) => (
               <li key={i}>{r}</li>
             ))}
           </ol>
-          <p className="tag mt-4 border-b border-line pb-2">guardrails</p>
+          <p className="tag mt-4 border-b border-line pb-2">guardrails · actions it is not allowed to take</p>
           {h.guardrails.length ? (
             <ul className="mt-2 space-y-2">
               {h.guardrails.map((g) => (
                 <li key={g.id} className="font-mono text-[12.5px] leading-snug">
-                  <span className="text-tide">{g.id}</span> <span className="text-ink-3">({g.action})</span>
+                  <span className="text-tide">{g.id}</span>
                   <br />
                   <code className="break-all text-ink-2">/{g.pattern}/</code>
                   <br />
@@ -317,11 +289,11 @@ function LineageTab({ data }: { data: DarwinState }) {
               ))}
             </ul>
           ) : (
-            <p className="mt-2 font-mono text-[12.5px] text-ink-3">none yet</p>
+            <p className="mt-2 font-mono text-[12.5px] text-ink-3">none yet — the starting rulebook trusts the AI</p>
           )}
-          <p className="tag mt-4 border-b border-line pb-2">tools · context</p>
+          <p className="tag mt-4 border-b border-line pb-2">tools · settings</p>
           <p className="mt-2 font-mono text-[12.5px] text-ink-2">
-            [{h.toolAllowlist.join(" ")}] · maxTurns {h.contextPolicy.maxTurns} · retrieveK {h.contextPolicy.retrieveK}
+            tools: {h.toolAllowlist.join(", ")} · up to {h.contextPolicy.maxTurns} turns per task · reads {h.contextPolicy.retrieveK} memories per task
             {h.skills.length ? ` · skills: ${h.skills.map((s) => s.id).join(", ")}` : ""}
           </p>
         </section>
@@ -331,10 +303,10 @@ function LineageTab({ data }: { data: DarwinState }) {
           <Stagger i={i} key={v.version} className="border-b border-line px-3 py-2.5 last:border-b-0">
             <div className="flex items-center justify-between gap-2">
               <GenTag tone={v.status === "active" ? "active" : v.status === "rolled_back" ? "rolled" : v.status === "candidate" ? "pending" : "neutral"}>
-                v{v.version} · {v.status.replace("_", " ")}
+                v{v.version} · {STATUS_WORDS[v.status]}
               </GenTag>
               <span className="font-mono text-[11px] text-ink-3">
-                {v.score === null ? "—" : `${Math.round(v.score * 100)}%`} · {v.rules.length}r {v.guardrails.length}g {v.skills.length}s
+                {v.score === null ? "—" : `${Math.round(v.score * 100)}%`} · {v.rules.length} rules · {v.guardrails.length} guardrails · {v.skills.length} skills
               </span>
             </div>
             <p className="mt-1.5 text-[13px] text-ink-2">{v.rationale}</p>
@@ -350,22 +322,25 @@ function MemoryTab({ data }: { data: DarwinState }) {
   const [query, setQuery] = useState("");
   const { data: lessons, isFetching } = useQuery({ ...modelenceQuery<LessonRow[]>("darwin.lessons", { q: query }), placeholderData: (prev) => prev });
   const tone = (k: string) => (k === "promotion" ? "promote" : k === "rollback" ? "rolled" : k === "skill" ? "active" : "neutral");
+  const kindWord = (k: string) => (k === "promotion" ? "a change it kept" : k === "rollback" ? "a change it threw out" : k === "skill" ? "skill" : "lesson");
+  const viaWord = (v: string) => (v === "$vectorSearch" ? "found by Atlas Vector Search" : v === "latest" ? "newest" : v === "cosine-fallback" ? "found by similarity (index still building)" : v);
   return (
     <div className="animate-rise space-y-4">
+      <p className="tag">everything is remembered in MongoDB Atlas — restart and nothing is lost</p>
       <div className="grid grid-cols-3 gap-2">
         {(
           [
-            ["lessons", data.counts.lessons, "semantic"],
-            ["runs", data.counts.runs, "episodic"],
-            ["versions", data.lineage.length, "procedural"],
+            ["lessons", data.counts.lessons, "what it learned"],
+            ["attempts", data.counts.runs, "every task it tried"],
+            ["rulebooks", data.lineage.length, "versions so far"],
           ] as const
-        ).map(([label, n, kind]) => (
+        ).map(([label, n, sub]) => (
           <div key={label} className="rounded-md border border-line bg-surface p-3">
-            <div className="tag">{kind}</div>
+            <div className="tag">{label}</div>
             <div className="mt-1 font-display text-[28px] font-semibold leading-none" style={{ fontVariationSettings: '"opsz" 144' }}>
               {n}
             </div>
-            <div className="mt-1 font-mono text-[11px] text-ink-3">{label}</div>
+            <div className="mt-1 font-mono text-[11px] text-ink-3">{sub}</div>
           </div>
         ))}
       </div>
@@ -379,7 +354,7 @@ function MemoryTab({ data }: { data: DarwinState }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="ask memory: 'deleting build output safely'"
+          placeholder="ask its memory: 'cleaning up build files safely'"
           className="h-10 flex-1 rounded-sm border border-line-strong bg-surface px-3 text-[14px] placeholder:text-ink-3"
         />
         <button type="submit" className="h-10 rounded-sm bg-ink px-3 text-[13px] font-semibold text-paper">
@@ -390,12 +365,12 @@ function MemoryTab({ data }: { data: DarwinState }) {
         {(lessons ?? []).map((l, i) => (
           <Stagger i={i} key={i} className="border-b border-line px-3 py-2.5 last:border-b-0">
             <div className="flex items-center justify-between gap-2">
-              <GenTag tone={tone(l.kind)}>{l.kind}</GenTag>
+              <GenTag tone={tone(l.kind)}>{kindWord(l.kind)}</GenTag>
               <span className="font-mono text-[11px] text-ink-3">
-                v{l.harnessVersion} · {l.via}
+                v{l.harnessVersion} · {viaWord(l.via)}
               </span>
             </div>
-            <p className="mt-1.5 text-[13px] leading-snug text-ink-2">{l.text}</p>
+            <p className="mt-1.5 text-[13px] leading-snug text-ink-2">{decisionWords(l.text)}</p>
           </Stagger>
         ))}
         {lessons && !lessons.length && <div className="px-3 py-2 font-mono text-[12.5px] text-ink-3">no lessons yet</div>}

@@ -15,26 +15,26 @@ type Export = { exportedAt: string; harnesses: ExportedHarness[]; generations: G
 const EXPEDITIONS: { id: string; title: string; note: string; data: Export }[] = [
   {
     id: "run-1",
-    title: "First lineage · 6 held-out tasks",
-    note: "A rule alone was rolled back for a held-out safety violation; the guardrail that followed was promoted and turned memory retrieval on.",
+    title: "Run 1 · a rule is not a guardrail",
+    note: "The AI first tried to fix dangerous behaviour with a rule (\"never delete data\"). On the surprise test it still deleted protected data, so the change was thrown out. Next round it added a guardrail that blocks the action — kept, and it switched memory on.",
     data: run1 as unknown as Export,
   },
   {
     id: "run-2",
-    title: "Second lineage · 6 held-out tasks",
-    note: "An overfit guardrail (literally `data/backups`) failed on held-out `archive/`; the general guardrails that followed reached 100%.",
+    title: "Run 2 · the surprise test catches memorising",
+    note: "It wrote a guardrail naming the exact folder from a practice task (`data/backups`). The surprise test uses different folders, the guardrail did nothing there, and the change was thrown out. The general guardrails that followed reached 100%.",
     data: run2 as unknown as Export,
   },
   {
     id: "run-3",
-    title: "Third lineage · 10 held-out tasks × 2",
-    note: "After the held-out suite grew to 20 scored runs: 60% → 100% in one generation, then nothing left to patch.",
+    title: "Run 3 · bigger surprise test",
+    note: "With the surprise test grown to 20 scored attempts: 60% → 100% in one round, then no mistakes left to fix.",
     data: run3 as unknown as Export,
   },
   {
     id: "run-5",
-    title: "Live demo · human in the loop",
-    note: "Run live: a 95% candidate was rolled back for one held-out safety violation; the next generation added a guardrail, stopped at the phone, and was promoted by a tap to 100%.",
+    title: "Run 5 · live, with a human in the loop",
+    note: "A change that scored 95% was thrown out because the AI did something dangerous once on the surprise test. The next round added a guardrail, stopped at the phone, and was kept with a tap — 100%.",
     data: run5 as unknown as Export,
   },
 ];
@@ -48,7 +48,7 @@ export function Expeditions() {
   const gens = current.data.generations;
   return (
     <section>
-      <p className="tag border-b border-line pb-2">recorded expeditions · earlier today · bundled with the app</p>
+      <p className="tag border-b border-line pb-2">earlier runs today · recorded, bundled with the app</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {EXPEDITIONS.map((e) => (
           <button
@@ -72,7 +72,7 @@ export function Expeditions() {
         ))}
       </div>
       <p className="mt-3 font-mono text-[11px] text-ink-3">
-        <GenTag>{current.data.runs.length} runs · {current.data.lessons.length} lessons</GenTag> exported {new Date(current.data.exportedAt).toLocaleTimeString()} from Atlas
+        <GenTag>{current.data.runs.length} attempts · {current.data.lessons.length} lessons</GenTag> saved from Atlas at {new Date(current.data.exportedAt).toLocaleTimeString()}
       </p>
     </section>
   );

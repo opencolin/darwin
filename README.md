@@ -1,6 +1,6 @@
 # Darwin — a self-improving, safety-governed agent harness
 
-> Agents that rewrite their own harness — and show their work.
+> Agents that rewrite their own rulebook.
 
 Every rule, guardrail, tool permission and skill a worker agent runs under is a **versioned document in MongoDB Atlas**. When the worker fails, a meta-agent proposes **one bounded patch**, Darwin tests it on **held-out tasks the meta-agent has never seen**, and **promotes it only if the held-out pass rate rises with zero safety violations**. Anything else is rolled back and remembered. A human can veto from a phone.
 

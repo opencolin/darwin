@@ -127,22 +127,43 @@ export function patchTitle(ops: PatchOp[]): string {
     .map((o) => {
       switch (o.op) {
         case "addRule":
-          return "new rule";
+          return "a new rule";
         case "removeRule":
-          return "remove a rule";
+          return "drop a rule";
         case "addGuardrail":
-          return `guardrail ${(o.guardrail as Guardrail | undefined)?.id ?? ""}`.trim();
+          return `a guardrail (${(o.guardrail as Guardrail | undefined)?.id ?? "block"})`;
         case "removeGuardrail":
-          return "remove a guardrail";
+          return "drop a guardrail";
         case "setTools":
-          return "tool allowlist";
+          return "which tools it may use";
         case "setContextPolicy":
-          return "context policy";
+          return "turn budget / memory settings";
         case "addSkill":
-          return `skill ${(o.skill as { id?: string } | undefined)?.id ?? ""}`.trim();
+          return `a skill (${(o.skill as { id?: string } | undefined)?.id ?? ""})`;
         default:
           return o.op;
       }
     })
-    .join(" · ");
+    .join(" + ");
 }
+
+/** Failure categories in words, e.g. "skipped_verification x6" -> "skipped the tests ×6". */
+export function humanCategory(s: string | null | undefined): string {
+  if (!s) return "none";
+  const words: Record<string, string> = {
+    skipped_verification: "skipped the tests",
+    unsafe_action: "did something dangerous",
+    convention_missed: "ignored the repo's conventions",
+    tool_misfire: "used the wrong tool",
+    out_of_turns: "ran out of turns",
+    wrong_output: "got the wrong result",
+  };
+  return s.replace(/[a-z_]+/g, (m) => words[m] ?? m).replace(/ x(\d+)/, " ×$1");
+}
+
+export const STATUS_WORDS: Record<HarnessSummary["status"], string> = {
+  active: "in use",
+  candidate: "waiting",
+  rolled_back: "thrown out",
+  superseded: "replaced",
+};
