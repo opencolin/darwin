@@ -134,28 +134,41 @@ function PendingTab({ data, canAct, op }: { data: DarwinState; canAct: boolean; 
       </div>
     );
   }
+  const first = data.pending[0];
+  const onDecide = (a: Approval, status: "promote" | "reject") =>
+    decide.mutate(
+      { id: a._id, status, op },
+      { onSuccess: () => toast.success(status === "promote" ? `Promoted v${a.candidateVersion}` : `Rejected v${a.candidateVersion}`) },
+    );
   return (
     <div className="space-y-4">
       {data.pending.map((a, i) => (
-        <ApprovalCard
-          key={a._id}
-          a={a}
-          i={i}
-          canAct={canAct}
-          busy={decide.isPending}
-          onDecide={(status) =>
-            decide.mutate(
-              { id: a._id, status, op },
-              { onSuccess: () => toast.success(status === "promote" ? `Promoted v${a.candidateVersion}` : `Rejected v${a.candidateVersion}`) },
-            )
-          }
-        />
+        <ApprovalCard key={a._id} a={a} i={i} />
       ))}
+      {/* Outside any animated ancestor: a transform would turn `fixed` into "fixed to the card". */}
+      <div className="fixed inset-x-0 bottom-0 z-10 mx-auto grid w-full max-w-md grid-cols-[1fr_1.3fr] gap-2.5 border-t border-line bg-paper/90 p-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-lift backdrop-blur">
+        <button
+          type="button"
+          disabled={!canAct || decide.isPending}
+          onClick={() => onDecide(first, "reject")}
+          className="h-12 rounded-sm border border-rollback font-semibold text-rollback transition-colors hover:bg-rollback-soft disabled:opacity-50"
+        >
+          Reject
+        </button>
+        <button
+          type="button"
+          disabled={!canAct || decide.isPending}
+          onClick={() => onDecide(first, "promote")}
+          className="h-12 rounded-sm bg-promote font-semibold text-paper transition-colors hover:brightness-95 disabled:opacity-50"
+        >
+          Promote v{first.candidateVersion}
+        </button>
+      </div>
     </div>
   );
 }
 
-function ApprovalCard({ a, i, canAct, busy, onDecide }: { a: Approval; i: number; canAct: boolean; busy: boolean; onDecide: (s: "promote" | "reject") => void }) {
+function ApprovalCard({ a, i }: { a: Approval; i: number }) {
   const before = pct(a.before);
   const after = pct(a.after);
   const delta = (after ?? 0) - (before ?? 0);
@@ -199,14 +212,6 @@ function ApprovalCard({ a, i, canAct, busy, onDecide }: { a: Approval; i: number
           </span>
         </div>
       </article>
-      <div className="fixed inset-x-0 bottom-0 z-10 mx-auto grid w-full max-w-md grid-cols-[1fr_1.3fr] gap-2.5 border-t border-line bg-paper/90 p-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-lift backdrop-blur">
-        <button type="button" disabled={!canAct || busy} onClick={() => onDecide("reject")} className="h-12 rounded-sm border border-rollback font-semibold text-rollback transition-colors hover:bg-rollback-soft disabled:opacity-50">
-          Reject
-        </button>
-        <button type="button" disabled={!canAct || busy} onClick={() => onDecide("promote")} className="h-12 rounded-sm bg-promote font-semibold text-paper transition-colors hover:brightness-95 disabled:opacity-50">
-          Promote v{a.candidateVersion}
-        </button>
-      </div>
     </Stagger>
   );
 }

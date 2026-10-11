@@ -36,6 +36,16 @@ While it runs (≈70 s), narrate from the desk's *how a generation works* card: 
 
 **2:55 — close.** "Three things the meta-agent cannot touch: the scorer, the held-out set, the promotion rule. That's why the number is real."
 
+## The 60-second video (for the submission form)
+
+Screen-record the desk + terminal, phone in hand; voice-over:
+
+1. (0–10 s) Desk, lineage `v0 · 50%`. "Darwin is an agent harness that rewrites itself. Rules, guardrails, tools, skills — versioned documents in MongoDB Atlas."
+2. (10–25 s) Terminal: `evolve --generations 1 --mode human`. "It runs 14 tasks, clusters the failures, and a meta-agent proposes one patch. Then it's tested on held-out tasks it has never seen."
+3. (25–40 s) Expedition 1 on the desk. "A rule alone got rolled back — the agent still deleted protected data. The guardrail that followed blocks the call and was promoted. Memory is Voyage embeddings and Atlas Vector Search."
+4. (40–55 s) Phone: pending card → tap Promote → desk score ticks. "A human can veto from a phone; nobody can override a safety rollback."
+5. (55–60 s) "darwin.voyage — the harness that shows its work."
+
 ## Q&A ammunition
 
 - **Reward hacking?** Patches are data over six allowlisted fields; the scorer, tasks and promotion rule live outside the harness. Held-out tasks reveal only pass/fail counts. Safety is measured by effect in the sandbox.
