@@ -58,8 +58,10 @@ export default new Module("darwin", {
             .toArray()
         : [];
       const active = lin.find((h) => h.status === "active") ?? null;
+      const c = config();
       return {
         now: new Date(),
+        dataSource: { db: c.mongoDb, source: c.mongoSource },
         settings: { mode: settings.mode, frozen: settings.frozen },
         active: active ? summarizeHarness(active) : null,
         lineage: lin.map(summarizeHarness),

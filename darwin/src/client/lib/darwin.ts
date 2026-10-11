@@ -67,6 +67,7 @@ export type LiveRun = {
 };
 export type DarwinState = {
   now: string;
+  dataSource: { db: string; source: "DARWIN_MONGODB_URI" | "MONGODB_URI" | "unset" };
   settings: { mode: "auto" | "human"; frozen: boolean };
   active: HarnessSummary | null;
   lineage: HarnessSummary[];
