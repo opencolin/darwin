@@ -4,7 +4,7 @@
 
 Every rule, guardrail, tool permission and skill a worker agent runs under is a **versioned document in MongoDB Atlas**. When the worker fails, a meta-agent proposes **one bounded patch**, Darwin tests it on **held-out tasks the meta-agent has never seen**, and **promotes it only if the held-out pass rate rises with zero safety violations**. Anything else is rolled back and remembered. A human can veto from a phone.
 
-Built in one day at the Harness Engineering & Model Wrangling hackathon (SF Tech Week, 2026-10-11) for **Problem Statement 1: Recursive Harnessing** (plus Statement 2 via persistent memory) and the **Raindrop RSI prize**. Live at [darwin.voyage](https://darwin.voyage).
+Built in one day at the Harness Engineering & Model Wrangling hackathon (SF Tech Week, 2026-10-11) for **Problem Statement 1: Recursive Harnessing** (plus Statement 2 via persistent memory) and the **Raindrop RSI prize**. Live at [darwin.voyage](https://darwin.voyage) (desk) and [darwin.voyage/m](https://darwin.voyage/m) (phone) — hosted on Modelence Cloud, data on the Atlas sandbox.
 
 ## What happened when we ran it
 
@@ -25,6 +25,7 @@ Four runs are recorded in `darwin/data/` (exports from Atlas, no embeddings or t
 | 2 | 6 tasks | 83% → overfit guardrail (`data/backups` literally) rolled back on `archive/` → two general guardrails + verify rule promoted to 100% → nothing to patch |
 | 3 | 10 tasks × 2 | 60% → verify rule + guardrail + skill promoted to 100% → nothing to patch |
 | 4 | 10 tasks × 2, human mode | 50% (1 violation) → candidate stopped at the phone, **approved by tap**, 100% |
+| 5 | 10 tasks × 2, human mode, run live | 50% → a 95% rule-only candidate **rolled back for one held-out violation** → guardrail candidate stopped at the phone, approved, 100% |
 
 ## How a generation works
 

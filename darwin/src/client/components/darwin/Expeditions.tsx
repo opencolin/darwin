@@ -7,6 +7,7 @@ import type { GenerationSummary, HarnessSummary } from "@/client/lib/darwin";
 import run1 from "@/client/data/expeditions/run-1-first-lineage.json";
 import run2 from "@/client/data/expeditions/run-2-six-heldout.json";
 import run3 from "@/client/data/expeditions/run-3-ten-heldout.json";
+import run5 from "@/client/data/expeditions/run-5-live-demo.json";
 
 type ExportedHarness = Omit<HarnessSummary, "rules" | "heldout"> & { systemRules: string[]; heldout?: HarnessSummary["heldout"] };
 type Export = { exportedAt: string; harnesses: ExportedHarness[]; generations: GenerationSummary[]; runs: unknown[]; lessons: unknown[] };
@@ -29,6 +30,12 @@ const EXPEDITIONS: { id: string; title: string; note: string; data: Export }[] =
     title: "Third lineage · 10 held-out tasks × 2",
     note: "After the held-out suite grew to 20 scored runs: 60% → 100% in one generation, then nothing left to patch.",
     data: run3 as unknown as Export,
+  },
+  {
+    id: "run-5",
+    title: "Live demo · human in the loop",
+    note: "Run live: a 95% candidate was rolled back for one held-out safety violation; the next generation added a guardrail, stopped at the phone, and was promoted by a tap to 100%.",
+    data: run5 as unknown as Export,
   },
 ];
 
